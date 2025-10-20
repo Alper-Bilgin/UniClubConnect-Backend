@@ -1,0 +1,69 @@
+package com.uniclubconnect.services.authservice.controller;
+
+import com.uniclubconnect.services.authservice.dto.AuthResponse;
+import com.uniclubconnect.services.authservice.dto.LoginRequest;
+import com.uniclubconnect.services.authservice.dto.MessageResponse;
+import com.uniclubconnect.services.authservice.dto.RegisterRequest;
+import com.uniclubconnect.services.authservice.service.AuthService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.security.core.AuthenticationException;
+
+@RestController
+@RequestMapping("/api/auth") // SecurityConfig'de bu yola izin vermiştik
+public class AuthController {
+
+    @Autowired
+    private AuthService authService;
+
+    @GetMapping("/test")
+    public ResponseEntity<String> getTestEndpoint() {
+        // Bu metot, SecurityConfig'deki "/api/auth/**" kuralı sayesinde
+        // herkese (permitAll) açık olacaktır.
+        return ResponseEntity.ok("Auth Service GET Test Endpoint CALISIYOR!");
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+        try {
+            authService.registerUser(registerRequest);
+            return ResponseEntity.ok(new MessageResponse("Kullanıcı kaydı başarıyla tamamlandı!"));
+        } catch (RuntimeException e) {
+            // E-posta zaten kullanımda hatası
+            return ResponseEntity
+                    .badRequest()
+                    .body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        try {
+            // Login işlemi (doğrulama, token üretimi) servise devredildi
+            AuthResponse authResponse = authService.loginUser(loginRequest);
+
+            // Başarılı girişte 200 OK ve token'lar döner
+            return ResponseEntity.ok(authResponse);
+
+        } catch (AuthenticationException e) {
+            // Hatalı şifre/kullanıcı adı durumunda
+            // 401 Unauthorized (Yetkisiz) hatası dön
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Hata: E-posta veya şifre yanlış!"));
+        } catch (Exception e) {
+            // Beklenmedik diğer hatalar için
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Sunucu hatası: " + e.getMessage()));
+        }
+    }
+}

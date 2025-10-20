@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      # Config Server'?n adresi
+      uri: http://localhost:8888
+
+# Not: Di?er tüm ayarlar (port: 8080, routing kurallar? vb.)
+# Git deponuzdaki 'api-gateway.yml' dosyas?ndan çekilmeye devam edecek.
+# Bu dosya, sadece o depoyu nerede bulaca??n? söyler.

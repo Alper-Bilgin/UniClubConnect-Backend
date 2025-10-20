@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  # RabbitMQ (Mesajlaşma Kuyruğu)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: unic_rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"  # Uygulamaların bağlanacağı port
+      - "15672:15672" # Yönetim arayüzü (http://localhost:15672)
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  # Redis (Hızlı Cacheleme ve Kontenjan)
+  redis:
+    image: redis:latest
+    container_name: unic_redis
+    hostname: redis
+    ports:
+      - "6379:6379" # Uygulamaların bağlanacağı port

@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: config-server # Eureka'da görünecek adı
+  cloud:
+    config:
+      server:
+        git:
+          # Kendi Git depo URL'nizi buraya yapıştırın
+          uri: https://github.com/Alper-Bilgin/uniclub-config-repo.git
+          clone-on-start: true
+
+server:
+  port: 8888 # Config Server'ın çalışacağı standart port
+
+# Config Server da Eureka'ya kayıt olmalı
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

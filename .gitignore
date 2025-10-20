@@ -1,0 +1,138 @@
+# =========================
+# Java / Spring Boot
+# =========================
+
+# Build klasörleri
+/target/
+/build/
+
+# Maven
+.mvn/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# Gradle
+.gradle/
+/build/
+!gradle/wrapper/gradle-wrapper.jar
+**/out/
+
+# Log dosyaları
+*.log
+*.log.*
+
+# Temp dosyalar
+*.tmp
+*.swp
+*.bak
+
+# Java klasörleri
+*.class
+*.jar
+*.war
+*.ear
+
+# =========================
+# IDE Dosyaları
+# =========================
+
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VSCode
+.vscode/
+
+# =========================
+# Sistem Dosyaları
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# Spring Boot
+# =========================
+
+# H2 / SQLite / embedded DB
+*.db
+*.h2.db
+*.mv.db
+
+# =========================
+# Redis / RabbitMQ / PostgreSQL
+# =========================
+
+# Redis dump
+dump.rdb
+appendonly.aof
+
+# RabbitMQ mnesia data
+mnesia/
+
+# PostgreSQL dump ve geçici dosyalar
+*.sql
+*.sql.gz
+
+# =========================
+# Docker / CI-CD
+# =========================
+
+docker-compose.override.yml
+.env
+.env.*
+
+# =========================
+# Test / Coverage
+# =========================
+
+# JUnit / Test klasörleri
+/test-output/
+**/test-classes/
+
+# Code coverage
+jacoco.exec
+*.ec
+coverage/
+.coverage
+coverage-final.json
+.nyc_output/
+
+# =========================
+# OS / Editor Artıkları
+# =========================
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =========================
+# Optional
+# =========================
+
+# Node.js varsa frontend için
+node_modules/
+dist/
+build/
+
+# Yarn / npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

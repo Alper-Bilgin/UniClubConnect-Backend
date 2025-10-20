@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: eureka-server
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      # Config server'ın adresini açıkça belirtiyoruz
+      # (spring.config.import bunu varsayılan olarak yapsa da garantilemek en iyisidir)
+      uri: http://localhost:8888
+
+server:
+  port: 8761 # Eureka'nın standart portu
+
+# Eureka'nın kendisine kayıt olmasını ve başkalarını aramasını engelle
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
