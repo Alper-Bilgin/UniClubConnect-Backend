@@ -1,0 +1,9 @@
+spring:
+  application:
+    # Bu servisin Eureka'daki ad? (Gateway rotas? için önemli)
+    name: user-profile-service
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      uri: http://localhost:8888
