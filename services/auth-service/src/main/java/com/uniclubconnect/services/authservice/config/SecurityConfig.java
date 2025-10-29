@@ -72,6 +72,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // /api/auth/ ile başlayan TÜM isteklere (login, register) izinsiz erişime izin ver
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Admin ve Kullanıcı istek yolları kimlik doğrulaması gerektirir
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/api/requests/**").authenticated()
                         // Geri kalan tüm istekler kimlik doğrulaması (Authentication) gerektirir
                         .anyRequest().authenticated()
                 );

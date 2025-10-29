@@ -2,13 +2,18 @@ package com.uniclubconnect.services.authservice;
 
 import com.uniclubconnect.services.authservice.entity.ERole;
 import com.uniclubconnect.services.authservice.entity.Role;
+import com.uniclubconnect.services.authservice.entity.User;
 import com.uniclubconnect.services.authservice.repository.RoleRepository;
+import com.uniclubconnect.services.authservice.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Set;
 
 @SpringBootApplication
 @EnableDiscoveryClient
@@ -20,23 +25,45 @@ public class AuthServiceApplication {
 
     @Bean
     @DependsOn("entityManagerFactory")
-    public CommandLineRunner initRoles(RoleRepository roleRepository) {
+    public CommandLineRunner initData(UserRepository userRepository,
+                                      RoleRepository roleRepository,
+                                      PasswordEncoder passwordEncoder) {
         return args -> {
 
-            if (roleRepository.findByName(ERole.ROLE_USER).isEmpty()) {
-                Role userRole = new Role(); // 1. Nesneyi oluştur
-                userRole.setName(ERole.ROLE_USER); // 2. Değerini ata
-                roleRepository.save(userRole); // 3. Kaydet
-            }
-            if (roleRepository.findByName(ERole.ROLE_CLUB_OWNER).isEmpty()) {
-                Role clubOwnerRole = new Role();
-                clubOwnerRole.setName(ERole.ROLE_CLUB_OWNER);
-                roleRepository.save(clubOwnerRole);
-            }
-            if (roleRepository.findByName(ERole.ROLE_ADMIN).isEmpty()) {
-                Role adminRole = new Role();
-                adminRole.setName(ERole.ROLE_ADMIN);
-                roleRepository.save(adminRole);
+            // Rolleri oluştur veya var olanları al
+            Role userRole = roleRepository.findByName(ERole.ROLE_USER).orElseGet(() ->
+                    roleRepository.save(new Role() {{
+                        setName(ERole.ROLE_USER);
+                    }})
+            );
+
+            Role clubOwnerRole = roleRepository.findByName(ERole.ROLE_CLUB_OWNER).orElseGet(() ->
+                    roleRepository.save(new Role() {{
+                        setName(ERole.ROLE_CLUB_OWNER);
+                    }})
+            );
+
+            Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN).orElseGet(() ->
+                    roleRepository.save(new Role() {{
+                        setName(ERole.ROLE_ADMIN);
+                    }})
+            );
+
+            // Varsayılan Admin Kullanıcısı Oluştur
+            String adminEmail = "admin@uniclub.com";
+            if (!userRepository.existsByEmail(adminEmail)) {
+                User adminUser = new User(
+                        adminEmail,
+                        passwordEncoder.encode("admin123") // Şifre: admin123
+                );
+
+                // Admin'e tüm rolleri ver
+                adminUser.setRoles(Set.of(userRole, clubOwnerRole, adminRole));
+                userRepository.save(adminUser);
+
+                System.out.println("✅ Varsayılan admin kullanıcısı oluşturuldu: " + adminEmail);
+            } else {
+                System.out.println("ℹ️ Varsayılan admin kullanıcısı zaten mevcut: " + adminEmail);
             }
         };
     }
