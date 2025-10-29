@@ -3,14 +3,20 @@ package com.uniclubconnect.services.authservice.service;
 import com.uniclubconnect.services.authservice.dto.AuthResponse;
 import com.uniclubconnect.services.authservice.dto.LoginRequest;
 import com.uniclubconnect.services.authservice.dto.RegisterRequest;
+import com.uniclubconnect.services.authservice.dto.RoleUpgradeRequestResponse;
 import com.uniclubconnect.services.authservice.entity.ERole;
+import com.uniclubconnect.services.authservice.entity.ERoleRequestStatus;
 import com.uniclubconnect.services.authservice.entity.Role;
+import com.uniclubconnect.services.authservice.entity.RoleUpgradeRequest;
 import com.uniclubconnect.services.authservice.entity.User;
 import com.uniclubconnect.services.authservice.event.UserCreatedEvent;
 import com.uniclubconnect.services.authservice.event.UserEventPublisher;
 import com.uniclubconnect.services.authservice.repository.RoleRepository;
+import com.uniclubconnect.services.authservice.repository.RoleUpgradeRequestRepository;
 import com.uniclubconnect.services.authservice.repository.UserRepository;
 import com.uniclubconnect.services.authservice.security.jwt.JwtUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,7 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,6 +35,9 @@ import java.util.stream.Collectors;
 @Service
 public class AuthService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+
+    //  Bağımlılıklar
     @Autowired
     private AuthenticationManager authenticationManager;
 
@@ -39,6 +48,9 @@ public class AuthService {
     private RoleRepository roleRepository;
 
     @Autowired
+    private RoleUpgradeRequestRepository roleUpgradeRequestRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -47,30 +59,29 @@ public class AuthService {
     @Autowired
     private UserEventPublisher userEventPublisher;
 
+    //  KULLANICI KAYIT
+
     @Transactional
     public User registerUser(RegisterRequest registerRequest) {
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new RuntimeException("Hata: E-posta adresi zaten kullanımda!");
         }
 
-        // 1. Yeni User nesnesi oluştur
+        // Yeni kullanıcı oluştur
         User user = new User(
                 registerRequest.getEmail(),
                 passwordEncoder.encode(registerRequest.getPassword())
         );
 
-        // 2. Varsayılan rolü ata (ROLE_USER)
-        Set<Role> roles = new HashSet<>();
+        // Varsayılan rol: ROLE_USER
         Role userRole = roleRepository.findByName(ERole.ROLE_USER)
                 .orElseThrow(() -> new RuntimeException("Hata: ROLE_USER rolü bulunamadı."));
-        roles.add(userRole);
-        user.setRoles(roles);
+        user.setRoles(Set.of(userRole));
 
-        // 3. Kullanıcıyı veritabanına kaydet
+        // Veritabanına kaydet
         User savedUser = userRepository.save(user);
 
-        // 4. RabbitMQ ile 'user.created' olayını yayınla
-        // (profile-service'in profili oluşturması için)
+        // RabbitMQ ile user.created olayı gönder
         UserCreatedEvent event = new UserCreatedEvent(
                 savedUser.getId(),
                 savedUser.getEmail(),
@@ -79,29 +90,27 @@ public class AuthService {
         );
         userEventPublisher.publishUserCreated(event);
 
+        logger.info("Yeni kullanıcı kaydedildi ve event yayınlandı: {}", savedUser.getEmail());
         return savedUser;
     }
 
+    //  GİRİŞ
+
     public AuthResponse loginUser(LoginRequest loginRequest) {
-        // 1. Spring Security'e 'email' ve 'password'u doğrulat
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
 
-        // 2. Kimliği SecurityContext'e yerleştir
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 3. JWT token'ları üret
         String accessToken = jwtUtils.generateJwtToken(authentication);
         String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
-        // 4. Kullanıcı detaylarını al
         User userDetails = (User) authentication.getPrincipal();
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
-        // 5. AuthResponse DTO'sunu oluşturup dön
         return new AuthResponse(
                 accessToken,
                 refreshToken,
@@ -109,5 +118,144 @@ public class AuthService {
                 userDetails.getEmail(),
                 roles
         );
+    }
+
+    // ROL YÜKSELTME İSTEKLERİ
+
+
+    // Kullanıcının Kulüp Sahibi olma isteği
+    @Transactional
+    public RoleUpgradeRequestResponse requestClubOwnerRole(String requestingUserId) {
+        User user = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new UserNotFoundException("Kullanıcı bulunamadı: " + requestingUserId));
+
+        boolean alreadyClubOwner = user.getRoles().stream()
+                .anyMatch(role -> role.getName().equals(ERole.ROLE_CLUB_OWNER));
+        if (alreadyClubOwner) {
+            throw new IllegalStateException("Kullanıcı zaten Kulüp Sahibi rolüne sahip.");
+        }
+
+        boolean existingRequest = roleUpgradeRequestRepository.existsByRequestingUserAndStatusIn(
+                user, List.of(ERoleRequestStatus.PENDING, ERoleRequestStatus.APPROVED)
+        );
+        if (existingRequest) {
+            throw new IllegalStateException("Zaten aktif bir rol yükseltme isteğiniz mevcut.");
+        }
+
+        RoleUpgradeRequest newRequest = RoleUpgradeRequest.builder()
+                .requestingUser(user)
+                .status(ERoleRequestStatus.PENDING)
+                .build();
+        RoleUpgradeRequest savedRequest = roleUpgradeRequestRepository.save(newRequest);
+
+        logger.info("Yeni rol yükseltme isteği oluşturuldu: {}", user.getEmail());
+        return mapToRequestResponseDTO(savedRequest);
+    }
+
+    // Kullanıcının kendi isteğini görüntüleme
+    public RoleUpgradeRequestResponse getCurrentUserRoleRequestStatus(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("Kullanıcı bulunamadı: " + userId));
+
+        return roleUpgradeRequestRepository.findByRequestingUser(user)
+                .map(this::mapToRequestResponseDTO)
+                .orElse(null);
+    }
+
+    // Admin: Bekleyen tüm istekleri listeleme
+    public List<RoleUpgradeRequestResponse> getPendingRoleRequests() {
+        return roleUpgradeRequestRepository.findByStatus(ERoleRequestStatus.PENDING).stream()
+                .map(this::mapToRequestResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Admin: Rol isteğini onaylama
+    @Transactional
+    public RoleUpgradeRequestResponse approveRoleRequest(Long requestId, String adminUserId) {
+        RoleUpgradeRequest request = roleUpgradeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RequestNotFoundException("İstek bulunamadı: " + requestId));
+
+        if (request.getStatus() != ERoleRequestStatus.PENDING) {
+            throw new IllegalStateException("Bu istek zaten sonuçlandırılmış: " + request.getStatus());
+        }
+
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new UserNotFoundException("Admin kullanıcı bulunamadı: " + adminUserId));
+
+        User targetUser = request.getRequestingUser();
+        Role clubOwnerRole = roleRepository.findByName(ERole.ROLE_CLUB_OWNER)
+                .orElseThrow(() -> new RuntimeException("Hata: ROLE_CLUB_OWNER rolü bulunamadı."));
+
+        targetUser.getRoles().add(clubOwnerRole);
+        userRepository.save(targetUser);
+
+        request.setStatus(ERoleRequestStatus.APPROVED);
+        request.setReviewedByAdminId(adminUserId);
+        request.setResolutionDate(LocalDateTime.now());
+        RoleUpgradeRequest updatedRequest = roleUpgradeRequestRepository.save(request);
+
+        logger.info("Rol isteği {} admin {} tarafından onaylandı. Kullanıcı {} artık ROLE_CLUB_OWNER.",
+                requestId, adminUser.getEmail(), targetUser.getEmail());
+
+        return mapToRequestResponseDTO(updatedRequest);
+    }
+
+    // Admin: Rol isteğini reddetme
+    @Transactional
+    public RoleUpgradeRequestResponse rejectRoleRequest(Long requestId, String adminUserId) {
+        RoleUpgradeRequest request = roleUpgradeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RequestNotFoundException("İstek bulunamadı: " + requestId));
+
+        if (request.getStatus() != ERoleRequestStatus.PENDING) {
+            throw new IllegalStateException("Bu istek zaten sonuçlandırılmış: " + request.getStatus());
+        }
+
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new UserNotFoundException("Admin kullanıcı bulunamadı: " + adminUserId));
+
+        request.setStatus(ERoleRequestStatus.REJECTED);
+        request.setReviewedByAdminId(adminUserId);
+        request.setResolutionDate(LocalDateTime.now());
+        RoleUpgradeRequest updatedRequest = roleUpgradeRequestRepository.save(request);
+
+        logger.info("Rol isteği {} admin {} tarafından reddedildi.", requestId, adminUser.getEmail());
+
+        return mapToRequestResponseDTO(updatedRequest);
+    }
+
+
+    //  Yardımcı Metotlar
+
+    private RoleUpgradeRequestResponse mapToRequestResponseDTO(RoleUpgradeRequest request) {
+        String adminEmail = null;
+        if (request.getReviewedByAdminId() != null) {
+            adminEmail = userRepository.findById(request.getReviewedByAdminId())
+                    .map(User::getEmail)
+                    .orElse("Bilinmeyen Admin");
+        }
+
+        return RoleUpgradeRequestResponse.builder()
+                .id(request.getId())
+                .requestingUserEmail(request.getRequestingUser().getEmail())
+                .status(request.getStatus())
+                .requestDate(request.getRequestDate())
+                .resolutionDate(request.getResolutionDate())
+                .reviewedByAdminEmail(adminEmail)
+                .build();
+    }
+
+
+    //  Exception Sınıfları
+
+    public static class UserNotFoundException extends RuntimeException {
+        public UserNotFoundException(String message) {
+            super(message);
+        }
+    }
+
+    public static class RequestNotFoundException extends RuntimeException {
+        public RequestNotFoundException(String message) {
+            super(message);
+        }
     }
 }

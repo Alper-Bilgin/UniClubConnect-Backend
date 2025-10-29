@@ -30,6 +30,7 @@ public class SecurityConfig {
         return new AuthTokenFilter();
     }
 
+
     // Spring'e, kullanıcıları veritabanından nasıl çekeceğini (UserDetailsService)
     // ve şifreleri nasıl karşılaştıracağını (PasswordEncoder) söyler.
     @Bean
