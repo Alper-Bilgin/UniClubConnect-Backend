@@ -1,7 +1,6 @@
 spring:
   application:
-    # Bu servisin Eureka'daki adÄ±
-    name: user-profile-service
+    name: club-service # Eureka'daki ad? (Gateway rotas? için önemli)
   config:
     import: "configserver:"
   cloud:

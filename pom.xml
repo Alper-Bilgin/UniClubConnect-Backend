@@ -20,6 +20,7 @@
         <module>infrastructure/api-gateway</module>
         <module>services/auth-service</module>
         <module>services/user-profile-service</module>
+        <module>services/club-service</module>
     </modules>
 
     <properties>
