@@ -71,6 +71,13 @@ public class ClubController {
         return ResponseEntity.ok(updatedClub);
     }
 
+    // Kulüp sahibinin kendi kulüp bilgilerini (özellikle ID'sini) çekmesi için
+    @GetMapping("/my-club")
+    @PreAuthorize("hasRole('CLUB_OWNER')")
+    public ResponseEntity<ClubResponse> getMyClub(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(clubService.getMyClub(principal.getAuthId()));
+    }
+
     /**
      * Bir kulübün logosunu MinIO'ya yükler.
      */

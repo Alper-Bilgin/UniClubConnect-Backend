@@ -54,16 +54,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/clubs/{clubId}/is-owner/{authId}").permitAll() // İç servis erişimi için
                         // OPTIONS istekleri (ön kontrol) her zaman izinli olmalı
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
                         // GET istekleri (herkese açık)
                         .requestMatchers(HttpMethod.GET, "/api/clubs").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/clubs/{clubId}").permitAll()
-
                         // Geri kalan tüm /api/clubs/ yolları (POST, PUT vb.)
                         .requestMatchers("/api/clubs/**").authenticated()
-                        .requestMatchers("/api/clubs/{clubId}/is-owner/{authId}").permitAll() // İç servis erişimi için
                         .anyRequest().authenticated()
                 );
 

@@ -62,6 +62,13 @@ public class ClubService {
                 .orElseThrow(() -> new ClubNotFoundException("Kulüp bulunamadı: " + clubId));
     }
 
+    public ClubResponse getMyClub(String ownerAuthId) {
+        Club club = clubRepository.findByOwnerAuthId(ownerAuthId)
+                .orElseThrow(() -> new RuntimeException("Sahip olduğunuz bir kulüp bulunamadı."));
+
+        return mapToClubResponse(club);
+    }
+
     // --- Kullanıcı Metotları (USER rolü gerektirir) ---
 
     @Transactional

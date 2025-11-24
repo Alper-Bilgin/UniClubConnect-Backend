@@ -33,3 +33,12 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - ./minio-data:/data
+
+    # RedisInsight (Redis Görsel Arayüzü)
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: unic_redisinsight
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
