@@ -50,6 +50,12 @@ public class ClubController {
         return ResponseEntity.ok(clubService.getAllClubs());
     }
 
+    // Feign Client için iç servis
+    @GetMapping("/{clubId}/is-owner/{authId}")
+    public boolean isUserOwnerOfClub(@PathVariable Long clubId, @PathVariable String authId) {
+        return clubSecurityService.isOwner(authId, clubId);
+    }
+
     /**
      * Bir kulübün adını veya açıklamasını günceller.
      */

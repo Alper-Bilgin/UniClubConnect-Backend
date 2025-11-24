@@ -63,7 +63,7 @@ public class SecurityConfig {
 
                         // Geri kalan tüm /api/clubs/ yolları (POST, PUT vb.)
                         .requestMatchers("/api/clubs/**").authenticated()
-
+                        .requestMatchers("/api/clubs/{clubId}/is-owner/{authId}").permitAll() // İç servis erişimi için
                         .anyRequest().authenticated()
                 );
 
