@@ -25,8 +25,12 @@ public class RegistrationService {
     @Autowired private StringRedisTemplate redisTemplate;
     @Autowired private RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.exchange.name}") private String exchangeName;
-    @Value("${rabbitmq.routingkey.ticket_created}") private String ticketCreatedKey;
+    @Value("${spring.rabbitmq.exchange.name}")
+    private String exchangeName;
+
+    // DİKKAT: Burası da 'spring.' ile başlamalı
+    @Value("${spring.rabbitmq.routingkey.ticket_created}")
+    private String ticketCreatedKey;
 
     // 1. KAYIT OLMA (Stok Düşürmeli)
     @Transactional
