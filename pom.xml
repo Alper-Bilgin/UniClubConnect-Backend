@@ -22,6 +22,7 @@
         <module>services/user-profile-service</module>
         <module>services/club-service</module>
         <module>services/event-service</module>
+        <module>services/registration-service</module>
     </modules>
 
     <properties>
