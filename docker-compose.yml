@@ -34,7 +34,7 @@ services:
     volumes:
       - ./minio-data:/data
 
-    # RedisInsight (Redis Görsel Arayüzü)
+  # RedisInsight (Redis Görsel Arayüzü)
   redisinsight:
     image: redis/redisinsight:latest
     container_name: unic_redisinsight
@@ -42,3 +42,13 @@ services:
       - "5540:5540"
     depends_on:
       - redis
+
+  # E-posta Test Sunucusu
+  mailpit:
+    image: axllent/mailpit
+    container_name: unic_mailpit
+    ports:
+      - "1025:1025" # SMTP Portu (Java buraya mail atacak)
+      - "8025:8025" # Web Arayüzü (Siz buradan mailleri okuyacaksınız)
+    environment:
+      MP_MAX_MESSAGES: 5000
