@@ -9,13 +9,13 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import org.springframework.security.core.AuthenticationException;
 
 @RestController
 @RequestMapping("/api/auth") // SecurityConfig'de bu yola izin vermiştik
@@ -66,4 +66,16 @@ public class AuthController {
                     .body(new MessageResponse("Sunucu hatası: " + e.getMessage()));
         }
     }
+
+    // --- YENİ ENDPOINT: DOĞRULAMA ---
+    @PostMapping("/verify")
+    public ResponseEntity<String> verifyUser(@RequestParam String email, @RequestParam String code) {
+        try {
+            String result = authService.verifyUser(email, code);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }

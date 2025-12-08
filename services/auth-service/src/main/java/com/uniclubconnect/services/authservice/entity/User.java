@@ -39,6 +39,11 @@ public class User implements UserDetails { // Spring Security'nin tanıması iç
     @Size(max = 120)
     private String password;
 
+    @Column(name = "is_enabled")
+    private boolean enabled = false; // Varsayılan: false (Pasif)
+
+
+
     @ManyToMany(fetch = FetchType.EAGER) // Kullanıcı çekildiğinde rolleri de gelsin
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -83,6 +88,6 @@ public class User implements UserDetails { // Spring Security'nin tanıması iç
 
     @Override
     public boolean isEnabled() {
-        return true; // Hesap aktif
+        return this.enabled;
     }
 }

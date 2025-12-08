@@ -3,9 +3,9 @@ spring:
   application:
     name: auth-service
   config:
-    # Config Server'dan ayarlar? import et
+    # Config Server'dan ayarları import et
     import: "configserver:"
   cloud:
     config:
-      # Config Server'?n adresi
+      # Config Server'ın adresi
       uri: http://localhost:8888

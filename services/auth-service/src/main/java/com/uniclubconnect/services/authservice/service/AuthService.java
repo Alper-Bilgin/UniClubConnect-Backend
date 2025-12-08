@@ -10,14 +10,16 @@ import com.uniclubconnect.services.authservice.entity.Role;
 import com.uniclubconnect.services.authservice.entity.RoleUpgradeRequest;
 import com.uniclubconnect.services.authservice.entity.User;
 import com.uniclubconnect.services.authservice.event.UserCreatedEvent;
-import com.uniclubconnect.services.authservice.event.UserEventPublisher;
 import com.uniclubconnect.services.authservice.repository.RoleRepository;
 import com.uniclubconnect.services.authservice.repository.RoleUpgradeRequestRepository;
 import com.uniclubconnect.services.authservice.repository.UserRepository;
 import com.uniclubconnect.services.authservice.security.jwt.JwtUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -29,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,7 +41,6 @@ public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    //  Bağımlılıklar
     @Autowired
     private AuthenticationManager authenticationManager;
 
@@ -56,10 +59,23 @@ public class AuthService {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Autowired
-    private UserEventPublisher userEventPublisher;
+    // ESKİ UserEventPublisher REFERANSI SİLİNDİ
 
-    //  KULLANICI KAYIT
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    @Value("${auth.rabbitmq.exchange}")
+    private String exchangeName;
+
+    @Value("${auth.rabbitmq.routing-key}")
+    private String routingKey;
+
+    // ----------------------------------------------------------------
+    //  1. KULLANICI KAYIT
+    // ----------------------------------------------------------------
 
     @Transactional
     public User registerUser(RegisterRequest registerRequest) {
@@ -67,34 +83,81 @@ public class AuthService {
             throw new RuntimeException("Hata: E-posta adresi zaten kullanımda!");
         }
 
-        // Yeni kullanıcı oluştur
         User user = new User(
                 registerRequest.getEmail(),
                 passwordEncoder.encode(registerRequest.getPassword())
         );
 
-        // Varsayılan rol: ROLE_USER
+        // Kullanıcı PASİF başlar
+        user.setEnabled(false);
+
         Role userRole = roleRepository.findByName(ERole.ROLE_USER)
                 .orElseThrow(() -> new RuntimeException("Hata: ROLE_USER rolü bulunamadı."));
         user.setRoles(Set.of(userRole));
 
-        // Veritabanına kaydet
         User savedUser = userRepository.save(user);
 
-        // RabbitMQ ile user.created olayı gönder
+        // Doğrulama Kodu Üret
+        String verificationCode = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        // Redis'e Yaz (5 dk)
+        redisTemplate.opsForValue().set(
+                "verify:" + savedUser.getEmail(),
+                verificationCode,
+                5, TimeUnit.MINUTES
+        );
+
+        // Event Oluştur
         UserCreatedEvent event = new UserCreatedEvent(
                 savedUser.getId(),
                 savedUser.getEmail(),
                 registerRequest.getFirstName(),
-                registerRequest.getLastName()
+                registerRequest.getLastName(),
+                verificationCode
         );
-        userEventPublisher.publishUserCreated(event);
 
-        logger.info("Yeni kullanıcı kaydedildi ve event yayınlandı: {}", savedUser.getEmail());
+        // RabbitMQ Mesajı Gönder
+        try {
+            rabbitTemplate.convertAndSend(exchangeName, routingKey, event);
+            logger.info("RabbitMQ mesajı gönderildi: {}", savedUser.getEmail());
+        } catch (Exception e) {
+            logger.error("RabbitMQ hatası: {}", e.getMessage());
+        }
+
+        logger.info("Yeni kullanıcı kaydedildi: {}", savedUser.getEmail());
         return savedUser;
     }
 
-    //  GİRİŞ
+    // ----------------------------------------------------------------
+    //  2. KULLANICI DOĞRULAMA (VERIFY)
+    // ----------------------------------------------------------------
+
+    public String verifyUser(String email, String code) {
+        String redisKey = "verify:" + email;
+        String storedCode = redisTemplate.opsForValue().get(redisKey);
+
+        if (storedCode == null) {
+            throw new RuntimeException("Doğrulama kodunun süresi dolmuş veya kod geçersiz.");
+        }
+
+        if (!storedCode.equals(code)) {
+            throw new RuntimeException("Hatalı doğrulama kodu!");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı: " + email));
+
+        user.setEnabled(true);
+        userRepository.save(user);
+        redisTemplate.delete(redisKey);
+
+        logger.info("Kullanıcı doğrulandı: {}", email);
+        return "Hesabınız başarıyla doğrulandı! Giriş yapabilirsiniz.";
+    }
+
+    // ----------------------------------------------------------------
+    //  3. GİRİŞ (LOGIN)
+    // ----------------------------------------------------------------
 
     public AuthResponse loginUser(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -120,10 +183,10 @@ public class AuthService {
         );
     }
 
-    // ROL YÜKSELTME İSTEKLERİ
+    // ----------------------------------------------------------------
+    //  4. ROL İŞLEMLERİ (Aynen kaldı)
+    // ----------------------------------------------------------------
 
-
-    // Kullanıcının Kulüp Sahibi olma isteği
     @Transactional
     public RoleUpgradeRequestResponse requestClubOwnerRole(String requestingUserId) {
         User user = userRepository.findById(requestingUserId)
@@ -148,11 +211,10 @@ public class AuthService {
                 .build();
         RoleUpgradeRequest savedRequest = roleUpgradeRequestRepository.save(newRequest);
 
-        logger.info("Yeni rol yükseltme isteği oluşturuldu: {}", user.getEmail());
+        logger.info("Yeni rol yükseltme isteği: {}", user.getEmail());
         return mapToRequestResponseDTO(savedRequest);
     }
 
-    // Kullanıcının kendi isteğini görüntüleme
     public RoleUpgradeRequestResponse getCurrentUserRoleRequestStatus(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("Kullanıcı bulunamadı: " + userId));
@@ -162,25 +224,20 @@ public class AuthService {
                 .orElse(null);
     }
 
-    // Admin: Bekleyen tüm istekleri listeleme
     public List<RoleUpgradeRequestResponse> getPendingRoleRequests() {
         return roleUpgradeRequestRepository.findByStatus(ERoleRequestStatus.PENDING).stream()
                 .map(this::mapToRequestResponseDTO)
                 .collect(Collectors.toList());
     }
 
-    // Admin: Rol isteğini onaylama
     @Transactional
     public RoleUpgradeRequestResponse approveRoleRequest(Long requestId, String adminUserId) {
         RoleUpgradeRequest request = roleUpgradeRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RequestNotFoundException("İstek bulunamadı: " + requestId));
 
         if (request.getStatus() != ERoleRequestStatus.PENDING) {
-            throw new IllegalStateException("Bu istek zaten sonuçlandırılmış: " + request.getStatus());
+            throw new IllegalStateException("İstek zaten sonuçlanmış.");
         }
-
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new UserNotFoundException("Admin kullanıcı bulunamadı: " + adminUserId));
 
         User targetUser = request.getRequestingUser();
         Role clubOwnerRole = roleRepository.findByName(ERole.ROLE_CLUB_OWNER)
@@ -194,37 +251,27 @@ public class AuthService {
         request.setResolutionDate(LocalDateTime.now());
         RoleUpgradeRequest updatedRequest = roleUpgradeRequestRepository.save(request);
 
-        logger.info("Rol isteği {} admin {} tarafından onaylandı. Kullanıcı {} artık ROLE_CLUB_OWNER.",
-                requestId, adminUser.getEmail(), targetUser.getEmail());
-
+        logger.info("Rol isteği onaylandı: {}", targetUser.getEmail());
         return mapToRequestResponseDTO(updatedRequest);
     }
 
-    // Admin: Rol isteğini reddetme
     @Transactional
     public RoleUpgradeRequestResponse rejectRoleRequest(Long requestId, String adminUserId) {
         RoleUpgradeRequest request = roleUpgradeRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RequestNotFoundException("İstek bulunamadı: " + requestId));
 
         if (request.getStatus() != ERoleRequestStatus.PENDING) {
-            throw new IllegalStateException("Bu istek zaten sonuçlandırılmış: " + request.getStatus());
+            throw new IllegalStateException("İstek zaten sonuçlanmış.");
         }
-
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new UserNotFoundException("Admin kullanıcı bulunamadı: " + adminUserId));
 
         request.setStatus(ERoleRequestStatus.REJECTED);
         request.setReviewedByAdminId(adminUserId);
         request.setResolutionDate(LocalDateTime.now());
         RoleUpgradeRequest updatedRequest = roleUpgradeRequestRepository.save(request);
 
-        logger.info("Rol isteği {} admin {} tarafından reddedildi.", requestId, adminUser.getEmail());
-
+        logger.info("Rol isteği reddedildi ID: {}", requestId);
         return mapToRequestResponseDTO(updatedRequest);
     }
-
-
-    //  Yardımcı Metotlar
 
     private RoleUpgradeRequestResponse mapToRequestResponseDTO(RoleUpgradeRequest request) {
         String adminEmail = null;
@@ -243,9 +290,6 @@ public class AuthService {
                 .reviewedByAdminEmail(adminEmail)
                 .build();
     }
-
-
-    //  Exception Sınıfları
 
     public static class UserNotFoundException extends RuntimeException {
         public UserNotFoundException(String message) {
