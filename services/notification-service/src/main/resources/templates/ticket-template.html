@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<h2>Merhaba <span th:text="${userName}"></span>,</h2>
+<p><strong><span th:text="${eventName}"></span></strong> için biletin hazır.</p>
+<hr/>
+<p><strong>Tarih:</strong> <span th:text="${date}"></span></p>
+<p><strong>Yer:</strong> <span th:text="${location}"></span></p>
+<p><strong>Bilet Kodu:</strong> <span th:text="${ticketCode}"></span></p>
+<div style="margin-top: 20px;">
+    <img th:src="${qrCodeUrl}" alt="QR Kod" width="150" height="150"/>
+</div>
+</body>
+</html>

@@ -1,8 +1,22 @@
 spring:
   application:
     name: notification-service
+
   config:
     import: "configserver:"
-cloud:
-  config:
-    uri: http://localhost:8888
+
+  cloud:
+    config:
+      uri: http://localhost:8888
+
+  mail:
+    host: localhost
+    port: 1025
+    username: null
+    password: null
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
