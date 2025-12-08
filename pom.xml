@@ -23,6 +23,7 @@
         <module>services/club-service</module>
         <module>services/event-service</module>
         <module>services/registration-service</module>
+        <module>services/notification-service</module>
     </modules>
 
     <properties>
