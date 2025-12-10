@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -14,6 +13,9 @@ public class TicketCreatedEvent implements Serializable {
     private String userName;
     private String eventTitle;
     private String ticketCode;
-    private LocalDateTime eventDate;
+
+    private String eventDate;
+    // -------------------------
+
     private String location;
 }

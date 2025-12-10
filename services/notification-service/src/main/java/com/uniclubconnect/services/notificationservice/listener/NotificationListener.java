@@ -40,7 +40,7 @@ public class NotificationListener {
         variables.put("eventName", event.getEventTitle());
         variables.put("ticketCode", event.getTicketCode());
         variables.put("location", event.getLocation());
-        variables.put("date", event.getEventDate().toString());
+        variables.put("date", event.getEventDate());
 
         // Basit bir QR API'si kullanıyoruz
         String qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + event.getTicketCode();

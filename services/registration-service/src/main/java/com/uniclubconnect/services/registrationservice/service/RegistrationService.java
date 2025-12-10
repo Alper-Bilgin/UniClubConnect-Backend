@@ -28,36 +28,37 @@ public class RegistrationService {
     @Value("${spring.rabbitmq.exchange.name}")
     private String exchangeName;
 
-    // DİKKAT: Burası da 'spring.' ile başlamalı
     @Value("${spring.rabbitmq.routingkey.ticket_created}")
     private String ticketCreatedKey;
 
-    // 1. KAYIT OLMA (Stok Düşürmeli)
+    // ----------------------------------------------------------------
+    // 1. KAYIT OLMA (Stok Düşürmeli ve Mail Göndermeli)
+    // ----------------------------------------------------------------
     @Transactional
     public Registration registerForEvent(Long eventId, String userAuthId, String userEmail) {
         // A) Etkinlik Var mı?
-        EventDto event = eventServiceClient.getEventById(eventId); // Hata varsa Feign fırlatır
+        EventDto event = eventServiceClient.getEventById(eventId);
 
         // B) Zaten kayıtlı mı?
         if (registrationRepository.existsByEventIdAndUserAuthIdAndStatus(eventId, userAuthId, ERegistrationStatus.CONFIRMED)) {
             throw new IllegalStateException("Bu etkinliğe zaten kaydınız var.");
         }
 
-        // C) REDIS İLE STOK KONTROLÜ (Race Condition Koruması)
-        if (event.getTotalQuota() != null) { // Sınırlı kontenjan ise
+        // C) REDIS İLE STOK KONTROLÜ
+        if (event.getTotalQuota() != null) {
             String redisKey = "event:" + eventId + ":quota";
 
             // Atomik olarak azalt
             Long remainingStock = redisTemplate.opsForValue().decrement(redisKey);
 
             if (remainingStock != null && remainingStock < 0) {
-                // Stok bitti, işlemi geri al (artır) ve hata fırlat
+                // Stok bitti, işlemi geri al
                 redisTemplate.opsForValue().increment(redisKey);
                 throw new IllegalStateException("Etkinlik kontenjanı doldu.");
             }
         }
 
-        // D) Kaydı Oluştur
+        // D) Kaydı Oluştur (DB)
         Registration registration = Registration.builder()
                 .eventId(eventId)
                 .eventTitle(event.getTitle())
@@ -65,34 +66,41 @@ public class RegistrationService {
                 .eventLocation(event.getLocation())
                 .userAuthId(userAuthId)
                 .userEmail(userEmail)
-                .userName("Kullanıcı") // TODO: user-profile-service'ten isim çekilebilir
-                .ticketCode(UUID.randomUUID().toString()) // Benzersiz Bilet Kodu
+                .userName("Sayın Üye") // Şimdilik varsayılan hitap
+                .ticketCode(UUID.randomUUID().toString())
                 .status(ERegistrationStatus.CONFIRMED)
                 .build();
 
         Registration savedRegistration = registrationRepository.save(registration);
 
-        // E) RabbitMQ Bildirimi
+        // E) RabbitMQ Bildirimi (Mail İçin)
+        // DİKKAT: Tarihi String'e çeviriyoruz (.toString())
         TicketCreatedEvent eventMessage = new TicketCreatedEvent(
-                userEmail, "Kullanıcı", event.getTitle(),
-                savedRegistration.getTicketCode(), event.getEventDateTime(), event.getLocation());
+                userEmail,
+                "Sayın Üye",
+                event.getTitle(),
+                savedRegistration.getTicketCode(),
+                event.getEventDateTime().toString(),
+                event.getLocation()
+        );
 
         try {
             rabbitTemplate.convertAndSend(exchangeName, ticketCreatedKey, eventMessage);
+            System.out.println("Bilet maili kuyruğa atıldı: " + userEmail);
         } catch (Exception e) {
-            // Logla ama işlemi durdurma
             System.err.println("RabbitMQ hatası: " + e.getMessage());
         }
 
         return savedRegistration;
     }
 
-    // 2. BİLET DOĞRULAMA (Laptop/QR Kontrolü)
+    // ----------------------------------------------------------------
+    // 2. BİLET DOĞRULAMA
+    // ----------------------------------------------------------------
     public TicketValidationResponse validateTicket(String ticketCode, String requesterId) {
         Registration registration = registrationRepository.findByTicketCode(ticketCode)
                 .orElseThrow(() -> new RuntimeException("Bilet bulunamadı: " + ticketCode));
 
-        // Güvenlik: Sadece etkinliğin sahibi kontrol edebilir
         EventDto event = eventServiceClient.getEventById(registration.getEventId());
         if (!event.getOrganizerAuthId().equals(requesterId)) {
             throw new RuntimeException("Bu bileti kontrol etme yetkiniz yok. (Etkinlik Sahibi Değilsiniz)");
@@ -114,12 +122,26 @@ public class RegistrationService {
                 .build();
     }
 
-    // 3. KULLANICININ BİLETLERİNİ LİSTELE
+    // ----------------------------------------------------------------
+    // 3. LİSTELEME METOTLARI
+    // ----------------------------------------------------------------
     public List<Registration> getMyRegistrations(String userAuthId) {
         return registrationRepository.findByUserAuthId(userAuthId);
     }
 
-    // 4. BİLET İPTAL ET (Kullanıcı Kendi Biletini)
+    public List<Registration> getEventRegistrations(Long eventId, String ownerId) {
+        EventDto event = eventServiceClient.getEventById(eventId);
+
+        if (!event.getOrganizerAuthId().equals(ownerId)) {
+            throw new RuntimeException("Bu etkinliğin katılımcılarını görme yetkiniz yok.");
+        }
+
+        return registrationRepository.findByEventId(eventId);
+    }
+
+    // ----------------------------------------------------------------
+    // 4. BİLET İPTAL
+    // ----------------------------------------------------------------
     @Transactional
     public void cancelTicket(String ticketCode, String userAuthId) {
         Registration registration = registrationRepository.findByTicketCode(ticketCode)
@@ -133,28 +155,12 @@ public class RegistrationService {
             throw new RuntimeException("Bilet zaten iptal edilmiş.");
         }
 
-        // Durumu güncelle
         registration.setStatus(ERegistrationStatus.CANCELLED);
         registrationRepository.save(registration);
 
-        // Redis'teki stoğu geri artır (Sınırlıysa)
-        // Event bilgisini tekrar çekmemiz gerekebilir veya EventService'e sormadan
-        // güvenli bir şekilde artırma stratejisi (Redis anahtarı varsa artır)
         String redisKey = "event:" + registration.getEventId() + ":quota";
         if (redisTemplate.hasKey(redisKey)) {
             redisTemplate.opsForValue().increment(redisKey);
         }
-    }
-
-    // 5. ETKİNLİK KATILIMCILARINI LİSTELE (Kulüp Sahibi İçin)
-    public List<Registration> getEventRegistrations(Long eventId, String ownerId) {
-        // Önce yetki kontrolü (Event Service üzerinden)
-        EventDto event = eventServiceClient.getEventById(eventId);
-
-        if (!event.getOrganizerAuthId().equals(ownerId)) {
-            throw new RuntimeException("Bu etkinliğin katılımcılarını görme yetkiniz yok.");
-        }
-
-        return registrationRepository.findByEventId(eventId);
     }
 }

@@ -1,14 +1,54 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<body>
-<h2>Merhaba <span th:text="${userName}"></span>,</h2>
-<p><strong><span th:text="${eventName}"></span></strong> için biletin hazır.</p>
-<hr/>
-<p><strong>Tarih:</strong> <span th:text="${date}"></span></p>
-<p><strong>Yer:</strong> <span th:text="${location}"></span></p>
-<p><strong>Bilet Kodu:</strong> <span th:text="${ticketCode}"></span></p>
-<div style="margin-top: 20px;">
-    <img th:src="${qrCodeUrl}" alt="QR Kod" width="150" height="150"/>
-</div>
+<body style="margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; background-color:#f7f7f7;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding: 30px 0;">
+    <tr>
+        <td align="center">
+
+            <table width="600" cellpadding="0" cellspacing="0" style="background:white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                <!-- Başlık -->
+                <tr>
+                    <td style="text-align:center;">
+                        <h2 style="color:#2c3e50; font-size:24px; margin-bottom:10px;">
+                            Merhaba <span th:text="${userName}"></span>,
+                        </h2>
+                        <p style="color:#555; font-size:15px; margin-top:0;">
+                            <strong><span th:text="${eventName}"></span></strong> için biletin hazır.
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>
+                        <!-- Bilet Bilgileri -->
+                        <div style="background-color:#f0f3f7; padding:20px; border-radius:8px; margin:25px 0; border-left:5px solid #4a6fa1;">
+                            <p style="margin:5px 0; color:#333; font-size:15px;">
+                                <strong>Tarih:</strong> <span th:text="${date}"></span>
+                            </p>
+                            <p style="margin:5px 0; color:#333; font-size:15px;">
+                                <strong>Yer:</strong> <span th:text="${location}"></span>
+                            </p>
+                            <p style="margin:5px 0; color:#333; font-size:15px;">
+                                <strong>Bilet Kodu:</strong> <span th:text="${ticketCode}"></span>
+                            </p>
+
+                            <div style="text-align:center; margin-top:20px;">
+                                <img th:src="${qrCodeUrl}" alt="QR Kod" width="150" height="150" style="border-radius:10px;"/>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td style="text-align:center; font-size:13px; color:#888; padding-top:10px;">
+                        © 2025 UniClub Connect – Tüm hakları saklıdır.
+                    </td>
+                </tr>
+            </table>
+
+        </td>
+    </tr>
+</table>
 </body>
 </html>
