@@ -21,6 +21,7 @@ public class NotificationListener {
     public void handleUserCreated(UserCreatedEvent event) {
         Map<String, Object> variables = new HashMap<>();
         variables.put("name", event.getFirstName());
+        variables.put("code", event.getVerificationCode());
 
         emailService.sendHtmlEmail(
                 event.getEmail(),

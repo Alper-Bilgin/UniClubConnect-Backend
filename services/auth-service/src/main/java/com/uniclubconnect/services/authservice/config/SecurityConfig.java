@@ -74,6 +74,7 @@ public class SecurityConfig {
                         // /api/auth/ ile başlayan TÜM isteklere (login, register) izinsiz erişime izin ver
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/auth/verify").permitAll()
+                        .requestMatchers("/api/auth/resend-code").permitAll()
                         // Admin ve Kullanıcı istek yolları kimlik doğrulaması gerektirir
                         .requestMatchers("/api/admin/**").authenticated()
                         .requestMatchers("/api/requests/**").authenticated()

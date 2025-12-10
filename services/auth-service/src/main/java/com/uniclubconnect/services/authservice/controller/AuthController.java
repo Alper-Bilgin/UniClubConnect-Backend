@@ -35,7 +35,7 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             authService.registerUser(registerRequest);
-            return ResponseEntity.ok(new MessageResponse("Kullanıcı kaydı başarıyla tamamlandı!"));
+            return ResponseEntity.ok(new MessageResponse("Kayıt başarılı! Lütfen e-postanıza gelen kodu doğrulayın."));
         } catch (RuntimeException e) {
             // E-posta zaten kullanımda hatası
             return ResponseEntity
@@ -67,7 +67,6 @@ public class AuthController {
         }
     }
 
-    // --- YENİ ENDPOINT: DOĞRULAMA ---
     @PostMapping("/verify")
     public ResponseEntity<String> verifyUser(@RequestParam String email, @RequestParam String code) {
         try {
@@ -75,6 +74,16 @@ public class AuthController {
             return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/resend-code")
+    public ResponseEntity<?> resendCode(@RequestParam String email) {
+        try {
+            String result = authService.resendVerificationCode(email);
+            return ResponseEntity.ok(new MessageResponse(result));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }
 

@@ -13,4 +13,6 @@ public class UserCreatedEvent implements Serializable {
     private String email;
     private String firstName;
     private String lastName;
+
+    private String verificationCode;
 }

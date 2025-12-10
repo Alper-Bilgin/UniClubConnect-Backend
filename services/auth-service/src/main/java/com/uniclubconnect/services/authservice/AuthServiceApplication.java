@@ -52,13 +52,20 @@ public class AuthServiceApplication {
             // Varsayılan Admin Kullanıcısı Oluştur
             String adminEmail = "admin@uniclub.com";
             if (!userRepository.existsByEmail(adminEmail)) {
+                // Constructor artık 4 parametre alıyor (Ad ve Soyad eklendi)
                 User adminUser = new User(
                         adminEmail,
-                        passwordEncoder.encode("admin123") // Şifre: admin123
+                        passwordEncoder.encode("admin123"), // Şifre
+                        "System",  // FirstName (Ad)
+                        "Admin"    // LastName (Soyad)
                 );
+
+                // Admin doğrulama beklememeli, direkt aktif olmalı
+                adminUser.setEnabled(true);
 
                 // Admin'e tüm rolleri ver
                 adminUser.setRoles(Set.of(userRole, clubOwnerRole, adminRole));
+
                 userRepository.save(adminUser);
 
                 System.out.println("✅ Varsayılan admin kullanıcısı oluşturuldu: " + adminEmail);

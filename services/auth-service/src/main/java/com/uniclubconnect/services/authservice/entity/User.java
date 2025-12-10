@@ -39,6 +39,9 @@ public class User implements UserDetails { // Spring Security'nin tanıması iç
     @Size(max = 120)
     private String password;
 
+    private String firstName;
+    private String lastName;
+
     @Column(name = "is_enabled")
     private boolean enabled = false; // Varsayılan: false (Pasif)
 
@@ -50,9 +53,11 @@ public class User implements UserDetails { // Spring Security'nin tanıması iç
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    public User(String email, String password) {
+    public User(String email, String password, String firstName, String lastName) {
         this.email = email;
         this.password = password;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 
     // --- UserDetails METOTLARI ---

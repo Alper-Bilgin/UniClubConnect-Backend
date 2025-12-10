@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -85,7 +87,9 @@ public class AuthService {
 
         User user = new User(
                 registerRequest.getEmail(),
-                passwordEncoder.encode(registerRequest.getPassword())
+                passwordEncoder.encode(registerRequest.getPassword()),
+                registerRequest.getFirstName(),
+                registerRequest.getLastName()
         );
 
         // Kullanıcı PASİF başlar
@@ -155,32 +159,80 @@ public class AuthService {
         return "Hesabınız başarıyla doğrulandı! Giriş yapabilirsiniz.";
     }
 
+
+    @Transactional
+    public String resendVerificationCode(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı."));
+
+        if (user.isEnabled()) {
+            throw new RuntimeException("Bu hesap zaten doğrulanmış. Giriş yapabilirsiniz.");
+        }
+
+        // Yeni kod üret
+        String verificationCode = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        // Redis'e üzerine yaz (Süreyi 5 dk'dan tekrar başlatır)
+        redisTemplate.opsForValue().set(
+                "verify:" + user.getEmail(),
+                verificationCode,
+                5, TimeUnit.MINUTES
+        );
+
+        // RabbitMQ'ya tekrar mesaj at (Notification servisi yine mail atacak)
+        // Not: firstName/lastName'i veritabanından aldık
+        UserCreatedEvent event = new UserCreatedEvent(
+                user.getId(),
+                user.getEmail(),
+                user.getFirstName(), // DB'den gelen isim
+                user.getLastName(),
+                verificationCode
+        );
+
+        try {
+            rabbitTemplate.convertAndSend(exchangeName, routingKey, event);
+        } catch (Exception e) {
+            logger.error("RabbitMQ hatası: {}", e.getMessage());
+        }
+
+        return "Yeni doğrulama kodu e-posta adresinize gönderildi.";
+    }
+
     // ----------------------------------------------------------------
     //  3. GİRİŞ (LOGIN)
     // ----------------------------------------------------------------
 
     public AuthResponse loginUser(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
-        );
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+            );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        String accessToken = jwtUtils.generateJwtToken(authentication);
-        String refreshToken = jwtUtils.generateRefreshToken(authentication);
+            String accessToken = jwtUtils.generateJwtToken(authentication);
+            String refreshToken = jwtUtils.generateRefreshToken(authentication);
 
-        User userDetails = (User) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+            User userDetails = (User) authentication.getPrincipal();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
 
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                userDetails.getId(),
-                userDetails.getEmail(),
-                roles
-        );
+            return new AuthResponse(
+                    accessToken,
+                    refreshToken,
+                    userDetails.getId(),
+                    userDetails.getEmail(),
+                    roles
+            );
+
+        } catch (DisabledException e) {
+            // KULLANICIYA DÖNECEK ÖZEL MESAJ
+            throw new RuntimeException("Hesabınız henüz doğrulanmamış! Lütfen e-postanızı kontrol edin.");
+        } catch (BadCredentialsException e) {
+            // ŞİFRE YANLIŞSA
+            throw new RuntimeException("E-posta veya şifre hatalı.");
+        }
     }
 
     // ----------------------------------------------------------------
