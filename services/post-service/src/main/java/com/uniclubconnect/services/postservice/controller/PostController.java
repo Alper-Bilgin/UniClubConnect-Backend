@@ -17,6 +17,7 @@ public class PostController {
 
     @Autowired private PostService postService;
 
+    // 1. GÖNDERİ OLUŞTUR
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostResponse> createPost(
             @RequestParam("content") String content,
@@ -26,16 +27,25 @@ public class PostController {
         return ResponseEntity.ok(postService.createPost(content, image, currentUser.getAuthId()));
     }
 
+    // 2. TÜMÜNÜ LİSTELE
     @GetMapping
     public ResponseEntity<List<PostResponse>> getAllPosts() {
         return ResponseEntity.ok(postService.getAllPosts());
     }
 
+    // 3. KULLANICI POSTLARINI LİSTELE
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<PostResponse>> getUserPosts(@PathVariable String userId) {
         return ResponseEntity.ok(postService.getUserPosts(userId));
     }
 
+    // 4. TEK POST DETAYI
+    @GetMapping("/{postId}")
+    public ResponseEntity<PostResponse> getPostById(@PathVariable String postId) {
+        return ResponseEntity.ok(postService.getPostById(postId));
+    }
+
+    // 5. GÖNDERİ SİL
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(@PathVariable String postId, @AuthenticationPrincipal UserPrincipal currentUser) {
         postService.deletePost(postId, currentUser.getAuthId());
