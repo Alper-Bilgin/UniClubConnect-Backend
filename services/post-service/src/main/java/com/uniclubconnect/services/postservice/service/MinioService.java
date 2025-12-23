@@ -1,9 +1,7 @@
 package com.uniclubconnect.services.postservice.service;
 
-import io.minio.BucketExistsArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
+import io.minio.*;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -12,24 +10,64 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class MinioService {
 
-    @Autowired private MinioClient minioClient;
+    @Autowired
+    private MinioClient minioClient;
 
-    // YAML'da "bucketName" yazdığın için burası değişti
     @Value("${minio.bucketName}")
     private String bucketName;
 
-    public String uploadFile(MultipartFile file) {
+    @Value("${minio.url}")
+    private String minioUrl;
+
+    @PostConstruct
+    public void init() {
         try {
-            // Bucket var mı kontrol et
             boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
             if (!found) {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+                System.out.println("Bucket oluşturuldu: " + bucketName);
+            } else {
+                System.out.println("Bucket zaten var: " + bucketName);
             }
+            setBucketPublicPolicy();
 
-            // Dosya ismi oluştur
+        } catch (Exception e) {
+            throw new RuntimeException("MinIO başlatma hatası: " + e.getMessage());
+        }
+    }
+
+    private void setBucketPublicPolicy() {
+        try {
+            // Bu JSON ayarı, bucket içindeki her şeyin şifresiz okunabilmesini sağlar.
+            String policyConfig = """
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": { "AWS": ["*"] },
+                      "Action": ["s3:GetObject"],
+                      "Resource": ["arn:aws:s3:::%s/*"]
+                    }
+                  ]
+                }
+                """.formatted(bucketName);
+
+            minioClient.setBucketPolicy(
+                    SetBucketPolicyArgs.builder()
+                            .bucket(bucketName)
+                            .config(policyConfig)
+                            .build()
+            );
+            System.out.println("Bucket erişim izni PUBLIC (Okuma Açık) olarak güncellendi.");
+        } catch (Exception e) {
+            System.err.println("Bucket policy ayarlanamadı: " + e.getMessage());
+        }
+    }
+
+    public String uploadFile(MultipartFile file) {
+        try {
             String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-
-            // Yükle
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucketName)
@@ -38,10 +76,14 @@ public class MinioService {
                             .contentType(file.getContentType())
                             .build()
             );
-
             return fileName;
         } catch (Exception e) {
             throw new RuntimeException("Resim yükleme hatası: " + e.getMessage());
         }
+    }
+
+    public String getFileUrl(String fileName) {
+        if (fileName == null || fileName.isEmpty()) return null;
+        return minioUrl + "/" + bucketName + "/" + fileName;
     }
 }
