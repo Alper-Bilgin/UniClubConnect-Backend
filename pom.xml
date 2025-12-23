@@ -25,6 +25,7 @@
         <module>services/registration-service</module>
         <module>services/notification-service</module>
         <module>services/post-service</module>
+        <module>services/interaction-service</module>
     </modules>
 
     <properties>
