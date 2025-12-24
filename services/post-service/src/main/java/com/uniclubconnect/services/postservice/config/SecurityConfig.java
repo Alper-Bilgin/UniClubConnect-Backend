@@ -50,13 +50,24 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+
+                        // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // POST SERVICE ÖZEL AYARLARI
-                        .requestMatchers("/api/posts/**").authenticated() // Tüm post işlemleri giriş gerektirir
+
+                        // 🔓 PUBLIC GET ENDPOINTS
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
+
+                        // 🔒 AUTH REQUIRED
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
+
+                        // diğer tüm istekler
                         .anyRequest().authenticated()
                 );
 
-        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(authenticationJwtTokenFilter(),
+                UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }
