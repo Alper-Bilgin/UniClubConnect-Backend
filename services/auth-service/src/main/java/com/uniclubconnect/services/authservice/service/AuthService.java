@@ -227,11 +227,10 @@ public class AuthService {
             );
 
         } catch (DisabledException e) {
-            // KULLANICIYA DÖNECEK ÖZEL MESAJ
-            throw new RuntimeException("Hesabınız henüz doğrulanmamış! Lütfen e-postanızı kontrol edin.");
+            // Önemli: Buradan RuntimeException değil, DisabledException fırlat ki Handler yakalasın
+            throw new DisabledException("Hesap doğrulanmadı");
         } catch (BadCredentialsException e) {
-            // ŞİFRE YANLIŞSA
-            throw new RuntimeException("E-posta veya şifre hatalı.");
+            throw new BadCredentialsException("Hatalı giriş");
         }
     }
 

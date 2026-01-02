@@ -7,9 +7,7 @@ import com.uniclubconnect.services.authservice.dto.RegisterRequest;
 import com.uniclubconnect.services.authservice.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,25 +44,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        try {
-            // Login işlemi (doğrulama, token üretimi) servise devredildi
-            AuthResponse authResponse = authService.loginUser(loginRequest);
-
-            // Başarılı girişte 200 OK ve token'lar döner
-            return ResponseEntity.ok(authResponse);
-
-        } catch (AuthenticationException e) {
-            // Hatalı şifre/kullanıcı adı durumunda
-            // 401 Unauthorized (Yetkisiz) hatası dön
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body(new MessageResponse("Hata: E-posta veya şifre yanlış!"));
-        } catch (Exception e) {
-            // Beklenmedik diğer hatalar için
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new MessageResponse("Sunucu hatası: " + e.getMessage()));
-        }
+        // try-catch YOK! Doğrudan servisi çağırıyoruz.
+        AuthResponse authResponse = authService.loginUser(loginRequest);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/verify")

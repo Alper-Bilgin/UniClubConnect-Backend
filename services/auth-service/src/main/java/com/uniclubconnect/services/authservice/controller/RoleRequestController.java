@@ -43,15 +43,16 @@ public class RoleRequestController {
 
     @GetMapping("/my-status")
     @PreAuthorize("isAuthenticated()")
-    // @AuthenticationPrincipal String userId YERİNE User user KULLANIN
-    public ResponseEntity<RoleUpgradeRequestResponse> getCurrentUserRoleRequestStatus(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getCurrentUserRoleRequestStatus(@AuthenticationPrincipal User user) {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        // Servise kullanıcının ID'sini gönderin
         RoleUpgradeRequestResponse response = authService.getCurrentUserRoleRequestStatus(user.getId());
+
         if (response == null) {
-            return ResponseEntity.notFound().build();
+            // 404 yerine 204 (No Content) dönelim.
+            // Bu "İstek başarılı ama gösterecek veri yok" demektir.
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(response);
     }
