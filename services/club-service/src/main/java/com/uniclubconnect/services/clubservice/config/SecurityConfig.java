@@ -8,15 +8,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer; // <-- Gerekli Import
-import org.springframework.security.config.http.SessionCreationPolicy; // <-- Gerekli Import
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration; // <-- Gerekli Import
-import org.springframework.web.cors.CorsConfigurationSource; // <-- Gerekli Import
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // <-- Gerekli Import
-
-import java.util.Arrays; // <-- Gerekli Import
 
 @Configuration
 @EnableMethodSecurity
@@ -32,7 +27,7 @@ public class SecurityConfig {
     }
 
     // CORS (Cross-Origin) ayarları - 403 hatasını önler
-    @Bean
+    /*@Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("*")); // Herkese izin ver
@@ -42,12 +37,12 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration); // Tüm yollar için
         return source;
-    }
+    }*/
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // <-- CORS'u uygula
+
                 .csrf(AbstractHttpConfigurer::disable) // <-- CSRF'i kapat (403'ü önler)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
