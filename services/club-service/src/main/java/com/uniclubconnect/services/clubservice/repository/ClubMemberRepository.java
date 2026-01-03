@@ -13,4 +13,7 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
 
     // Bir kulübün tüm üyelerini getir
     List<ClubMember> findByClubId(Long clubId);
+
+    // Verilen kulüp ID'sine sahip kaç kayıt var? (Hızlı sayım yapar)
+    long countByClubId(Long clubId);
 }

@@ -57,6 +57,21 @@ public class ClubController {
     }
 
     /**
+     * Yeni bir kulüp oluşturur.
+     * Sadece ROLE_CLUB_OWNER yetkisine sahip kullanıcılar erişebilir.
+     */
+    @PostMapping
+    @PreAuthorize("hasRole('CLUB_OWNER')")
+    public ResponseEntity<ClubResponse> createClub(
+            @Valid @RequestBody ClubRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        // Servis metodunu çağırırken token'dan gelen ID'yi veriyoruz
+        ClubResponse response = clubService.createClub(request, principal.getAuthId());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Bir kulübün adını veya açıklamasını günceller.
      */
     @PutMapping("/{clubId}")
@@ -107,6 +122,13 @@ public class ClubController {
         return ResponseEntity.ok(clubService.getMembershipRequests(clubId, status));
     }
 
+    @PostMapping("/{clubId}/join")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<?> joinClub(@PathVariable Long clubId, @AuthenticationPrincipal UserPrincipal principal) {
+        clubService.requestToJoinClub(clubId, principal.getAuthId(), principal.getEmail());
+        return ResponseEntity.ok(Map.of("message", "Katılım isteği gönderildi."));
+    }
+
     /**
      * Bir kulübün mevcut üyelerini listeler.
      */
@@ -121,7 +143,7 @@ public class ClubController {
     }
 
     /**
-     * Bir üyelik isteğini onaylar. (TEST 6b)
+     * Bir üyelik isteğini onaylar
      */
     @PostMapping("/requests/{requestId}/approve")
     // --- DEĞİŞİKLİK BURADA ---

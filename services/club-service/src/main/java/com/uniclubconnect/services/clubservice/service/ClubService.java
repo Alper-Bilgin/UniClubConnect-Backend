@@ -66,6 +66,11 @@ public class ClubService {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ClubNotFoundException("Kulüp bulunamadı: " + clubId));
 
+
+        if (club.getOwnerAuthId().equals(userAuthId)) {
+            throw new IllegalStateException("Kendi kulübünüze üyelik isteği gönderemezsiniz.");
+        }
+
         if (clubMemberRepository.existsByClubIdAndUserAuthId(clubId, userAuthId)) {
             throw new AlreadyMemberException("Bu kulübe zaten üyesiniz.");
         }
@@ -223,12 +228,15 @@ public class ClubService {
             }
         }
 
+        long count = clubMemberRepository.countByClubId(club.getId());
+
         return ClubResponse.builder()
                 .id(club.getId())
                 .name(club.getName())
                 .description(club.getDescription())
                 .logoUrl(fullLogoUrl) // http://localhost:9000/uniclub-logos/resim.png
                 .ownerAuthId(club.getOwnerAuthId())
+                .memberCount(count)
                 .build();
     }
 

@@ -11,4 +11,5 @@ public class ClubResponse {
     private String description;
     private String logoUrl;
     private String ownerAuthId; // Sahip ID'si
+    private long memberCount;
 }
