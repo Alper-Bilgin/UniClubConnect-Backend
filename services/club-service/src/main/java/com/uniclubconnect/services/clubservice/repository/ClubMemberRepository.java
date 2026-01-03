@@ -16,4 +16,8 @@ public interface ClubMemberRepository extends JpaRepository<ClubMember, Long> {
 
     // Verilen kulüp ID'sine sahip kaç kayıt var? (Hızlı sayım yapar)
     long countByClubId(Long clubId);
+
+    // Hem kulüp ID hem User ID ile silme işlemi
+    void deleteByClubIdAndUserAuthId(Long clubId, String userAuthId);
+
 }
