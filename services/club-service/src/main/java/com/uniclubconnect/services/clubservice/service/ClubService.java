@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.security.access.AccessDeniedException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,6 +43,12 @@ public class ClubService {
 
     public List<ClubResponse> getAllClubs() {
         return clubRepository.findAll().stream()
+                .map(this::mapToClubResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<ClubResponse> searchClubs(String keyword) {
+        return clubRepository.findByNameContainingIgnoreCase(keyword).stream()
                 .map(this::mapToClubResponse)
                 .collect(Collectors.toList());
     }
@@ -193,6 +200,52 @@ public class ClubService {
 
         Club updatedClub = clubRepository.save(club);
         return mapToClubResponse(updatedClub);
+    }
+
+    // klüpten ayrılma işlemi
+    @Transactional
+    public void leaveClub(Long clubId, String userAuthId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ClubNotFoundException("Kulüp bulunamadı."));
+
+        // Kulüp sahibi çıkamaz!
+        if (club.getOwnerAuthId().equals(userAuthId)) {
+            throw new IllegalStateException("Kulüp sahibi kulüpten ayrılamaz. Önce kulübü devretmelisiniz.");
+        }
+
+        // Üye değilse hata ver
+        if (!clubMemberRepository.existsByClubIdAndUserAuthId(clubId, userAuthId)) {
+            throw new IllegalStateException("Zaten bu kulübün üyesi değilsiniz.");
+        }
+
+        clubMemberRepository.deleteByClubIdAndUserAuthId(clubId, userAuthId);
+        logger.info("Kullanıcı kulüpten ayrıldı: {} -> ClubId: {}", userAuthId, clubId);
+    }
+
+    // --- Klüpten atma işlemi ---
+    @Transactional
+    public void kickMember(Long clubId, String targetAuthId, String ownerAuthId) {
+        // 1. Kulübü bul
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ClubNotFoundException("Kulüp bulunamadı."));
+
+        // 2. İşlemi yapan kişi gerçekten sahip mi? (Service katmanında double-check)
+        if (!club.getOwnerAuthId().equals(ownerAuthId)) {
+            throw new AccessDeniedException("Bu işlem için yetkiniz yok.");
+        }
+
+        // 3. Atılacak kişi gerçekten üye mi?
+        if (!clubMemberRepository.existsByClubIdAndUserAuthId(clubId, targetAuthId)) {
+            throw new IllegalStateException("Kullanıcı bu kulübün üyesi değil.");
+        }
+
+        // 4. Kendini atamazsın
+        if (targetAuthId.equals(ownerAuthId)) {
+            throw new IllegalStateException("Kendinizi kulüpten atamazsınız.");
+        }
+
+        clubMemberRepository.deleteByClubIdAndUserAuthId(clubId, targetAuthId);
+        logger.info("Üye kulüpten atıldı. Atan: {}, Atılan: {}, ClubId: {}", ownerAuthId, targetAuthId, clubId);
     }
 
     // --- LİSTELEME ---
