@@ -16,5 +16,6 @@ public class EventResponse {
     private String imageUrl;        // MinIO'dan gelen URL
     private Integer totalQuota;     // Null ise sınırsız
     private Long clubId;
+    private String clubName;
     private String organizerAuthId;
 }

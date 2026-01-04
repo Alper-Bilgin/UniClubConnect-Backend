@@ -51,6 +51,14 @@ public class ClubController {
         return ResponseEntity.ok(clubService.getAllClubs());
     }
 
+    /**
+     * ID ile kulüp detayını getirir (Event Service / iç servisler için).
+     */
+    @GetMapping("/{clubId}")
+    public ResponseEntity<ClubResponse> getClubById(@PathVariable Long clubId) {
+        return ResponseEntity.ok(clubService.getClubById(clubId));
+    }
+
     // Feign Client için iç servis
     @GetMapping("/{clubId}/is-owner/{authId}")
     public boolean isUserOwnerOfClub(@PathVariable Long clubId, @PathVariable String authId) {
