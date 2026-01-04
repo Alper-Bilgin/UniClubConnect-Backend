@@ -117,4 +117,64 @@ public class EventService {
                 .organizerAuthId(event.getOrganizerAuthId())
                 .build();
     }
+
+    // --- 4. ETKİNLİK GÜNCELLEME ---
+    @Transactional
+    public EventResponse updateEvent(Long eventId, EventRequest request, String userId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Etkinlik bulunamadı: " + eventId));
+
+        // Güvenlik: Sadece etkinliği oluşturan (veya kulüp sahibi) güncelleyebilir
+        // Not: Event entity'sine kaydettiğimiz organizerAuthId'yi kontrol ediyoruz.
+        if (!event.getOrganizerAuthId().equals(userId)) {
+            throw new AccessDeniedException("Bu etkinliği düzenleme yetkiniz yok.");
+        }
+
+        // Alanları güncelle
+        event.setTitle(request.getTitle());
+        event.setDescription(request.getDescription());
+        event.setLocation(request.getLocation());
+        event.setEventLink(request.getEventLink());
+        event.setEventDateTime(request.getEventDateTime());
+
+        // Eğer kulüp ID değişecekse (Genelde değişmez ama) tekrar sahiplik kontrolü gerekir.
+        // Şimdilik kulüp ID'yi değiştirmiyoruz.
+
+        // Kontenjan değiştiyse Redis'i güncelle
+        if (request.getTotalQuota() != null && !request.getTotalQuota().equals(event.getTotalQuota())) {
+            event.setTotalQuota(request.getTotalQuota());
+            String redisKey = "event:" + event.getId() + ":quota";
+            redisTemplate.opsForValue().set(redisKey, String.valueOf(request.getTotalQuota()));
+        }
+
+        Event updatedEvent = eventRepository.save(event);
+        logger.info("Etkinlik güncellendi: {}", eventId);
+        return mapToEventResponse(updatedEvent);
+    }
+
+    // --- 5. ETKİNLİK SİLME ---
+    @Transactional
+    public void deleteEvent(Long eventId, String userId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new RuntimeException("Etkinlik bulunamadı: " + eventId));
+
+        if (!event.getOrganizerAuthId().equals(userId)) {
+            throw new AccessDeniedException("Bu etkinliği silme yetkiniz yok.");
+        }
+
+        // Önce Redis'teki kontenjan bilgisini temizle
+        redisTemplate.delete("event:" + eventId + ":quota");
+
+        // (Opsiyonel) MinIO'dan resmi silme işlemi buraya eklenebilir.
+
+        eventRepository.delete(event);
+        logger.info("Etkinlik silindi: {}", eventId);
+    }
+
+    // --- 6. KULÜBE GÖRE ETKİNLİKLERİ GETİR ---
+    public List<EventResponse> getEventsByClubId(Long clubId) {
+        return eventRepository.findByClubId(clubId).stream()
+                .map(this::mapToEventResponse)
+                .collect(Collectors.toList());
+    }
 }

@@ -69,4 +69,33 @@ public class EventController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
+
+    // --- GÜNCELLEME VE SİLME (Club Owner) ---
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CLUB_OWNER')")
+    public ResponseEntity<EventResponse> updateEvent(
+            @PathVariable Long id,
+            @Valid @RequestBody EventRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        return ResponseEntity.ok(eventService.updateEvent(id, request, principal.getAuthId()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('CLUB_OWNER')")
+    public ResponseEntity<Void> deleteEvent(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        eventService.deleteEvent(id, principal.getAuthId());
+        return ResponseEntity.noContent().build(); // 204 No Content döner
+    }
+
+    // --- KULÜBE GÖRE LİSTELEME (Public) ---
+
+    @GetMapping("/club/{clubId}")
+    public ResponseEntity<List<EventResponse>> getEventsByClub(@PathVariable Long clubId) {
+        return ResponseEntity.ok(eventService.getEventsByClubId(clubId));
+    }
 }
