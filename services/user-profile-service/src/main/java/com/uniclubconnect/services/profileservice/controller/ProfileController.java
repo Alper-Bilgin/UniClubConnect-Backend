@@ -70,4 +70,16 @@ public class ProfileController {
         return contentType != null && (contentType.equals("image/jpeg") || contentType.equals("image/png") || contentType.equals("image/gif"));
     }
 
+    // Başka bir kullanıcının profilini getir (Post Service'in Feign Client'ı ve Frontend için)
+    @GetMapping("/user/{authId}")
+    public ResponseEntity<UserProfileResponse> getUserProfileByAuthId(@PathVariable String authId) {
+        try {
+            // Zaten mevcut olan getProfileByAuthId servisini kullanıyoruz
+            UserProfileResponse profile = userProfileService.getProfileByAuthId(authId);
+            return ResponseEntity.ok(profile);
+        } catch (UserProfileService.ProfileNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Kullanıcı profili bulunamadı: " + authId);
+        }
+    }
+
 }

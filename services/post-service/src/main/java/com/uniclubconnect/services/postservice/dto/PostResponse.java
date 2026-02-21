@@ -13,6 +13,10 @@ public class PostResponse {
     private String content;
     private String imageUrl;
 
+    // --- YENİ EKLENEN KISIM ---
+    private String authorName; // Örn: "Alper Bilgin"
+    private String authorProfileImage; // Profil resmi URL'si
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 }

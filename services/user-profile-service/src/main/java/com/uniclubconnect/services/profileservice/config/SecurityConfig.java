@@ -26,8 +26,13 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // /api/profiles/** ile başlayan TÜM yollar kimlik doğrulaması gerektirir
+
+                        // 1. Dışarıdan veya diğer servislerden gelecek profil sorgulamalarına izin ver (Public)
+                        .requestMatchers("/api/profiles/user/**").permitAll()
+
+                        // 2. /api/profiles/me gibi geri kalan TÜM yollar kimlik doğrulaması gerektirir
                         .requestMatchers("/api/profiles/**").authenticated()
+
                         .anyRequest().authenticated()
                 );
 

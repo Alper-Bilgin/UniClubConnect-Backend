@@ -4,6 +4,8 @@ import com.uniclubconnect.services.postservice.dto.PostResponse;
 import com.uniclubconnect.services.postservice.entity.Post;
 import com.uniclubconnect.services.postservice.exception.PostNotFoundException;
 import com.uniclubconnect.services.postservice.repository.PostRepository;
+import com.uniclubconnect.services.postservice.client.ProfileServiceClient;
+import com.uniclubconnect.services.postservice.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,9 +19,10 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final MinioService minioService;
+    private final ProfileServiceClient profileServiceClient; // <-- EKLENDİ
 
     public PostResponse createPost(String content, MultipartFile image, String userId) {
-        String imageFileName = null; // Veritabanında sadece dosya adını tutuyoruz (Örn: 17665...post2.png)
+        String imageFileName = null;
 
         if (image != null && !image.isEmpty()) {
             imageFileName = minioService.uploadFile(image);
@@ -36,17 +39,22 @@ public class PostService {
 
     public List<PostResponse> getAllPosts() {
         return postRepository.findAllByOrderByCreatedAtDesc()
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     public List<PostResponse> getUserPosts(String userId) {
         return postRepository.findByUserIdOrderByCreatedAtDesc(userId)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     public PostResponse getPostById(String postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException("Gönderi bulunamadı: " + postId));
+
         return mapToResponse(post);
     }
 
@@ -57,23 +65,42 @@ public class PostService {
         if (!post.getUserId().equals(userId)) {
             throw new RuntimeException("Bu gönderiyi silme yetkiniz yok!");
         }
+
         postRepository.delete(post);
     }
 
-
     private PostResponse mapToResponse(Post post) {
-        String fullUrl = null;
 
-        // Eğer resim varsa, MinioService'den tam linki istiyoruz
+        // Resim URL'sini Minio'dan tam linke çeviriyoruz
+        String fullUrl = null;
         if (post.getImageUrl() != null && !post.getImageUrl().isEmpty()) {
             fullUrl = minioService.getFileUrl(post.getImageUrl());
+        }
+
+        // --- PROFILE SERVICE ENTEGRASYONU ---
+        String authorName = "Bilinmeyen Kullanıcı";
+        String authorImage = null;
+
+        try {
+            UserProfileDto profile = profileServiceClient.getProfileByAuthId(post.getUserId());
+
+            if (profile != null) {
+                authorName = profile.getFirstName() + " " + profile.getLastName();
+                authorImage = profile.getProfileImageUrl();
+            }
+
+        } catch (Exception e) {
+            // Profile service down olursa sistem patlamasın
+            // Log eklemek istersen burada logger kullanabilirsin
         }
 
         return PostResponse.builder()
                 .id(post.getId())
                 .userId(post.getUserId())
                 .content(post.getContent())
-                .imageUrl(fullUrl) // Artık: http://localhost:9000/uniclubposts/dosya.png dönüyor
+                .imageUrl(fullUrl)
+                .authorName(authorName)                // <-- EKLENDİ
+                .authorProfileImage(authorImage)      // <-- EKLENDİ
                 .createdAt(post.getCreatedAt())
                 .build();
     }
