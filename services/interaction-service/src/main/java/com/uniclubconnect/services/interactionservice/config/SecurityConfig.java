@@ -32,15 +32,16 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // GET isteklerini serbest bırakıyoruz. (Ortada çift yıldız kullanmadan!)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/interactions/comments/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/interactions/likes/*/*/count").permitAll()
 
+                        // Kalan her şey (Yorum yapma, beğenme, durumu sorma) token gerektirir
                         .requestMatchers("/api/interactions/**").authenticated()
-
-                        // diğer tüm istekler
                         .anyRequest().authenticated()
                 );
 
-        http.addFilterBefore(authenticationJwtTokenFilter(),
-                UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
