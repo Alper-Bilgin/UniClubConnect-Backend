@@ -43,6 +43,7 @@ public class SecurityConfig {
                         // 🔒 AUTH REQUIRED
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").authenticated()
 
                         // diğer tüm istekler
                         .anyRequest().authenticated()

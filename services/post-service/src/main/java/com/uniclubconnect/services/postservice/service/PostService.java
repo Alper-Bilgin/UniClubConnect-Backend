@@ -104,4 +104,29 @@ public class PostService {
                 .createdAt(post.getCreatedAt())
                 .build();
     }
+    // 5. GÖNDERİ GÜNCELLE
+    public PostResponse updatePost(String postId, String content, MultipartFile image, String userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new PostNotFoundException("Gönderi bulunamadı: " + postId));
+
+        // Güvenlik: Sadece postu atan kişi düzenleyebilir
+        if (!post.getUserId().equals(userId)) {
+            throw new RuntimeException("Bu gönderiyi düzenleme yetkiniz yok!");
+        }
+
+        // Metni güncelle
+        if (content != null) {
+            post.setContent(content);
+        }
+
+        // Eğer yeni bir resim yüklendiyse
+        if (image != null && !image.isEmpty()) {
+            // (Opsiyonel: İstersen eski resmi MinIO'dan silme kodunu buraya ekleyebilirsin)
+            String newImageFileName = minioService.uploadFile(image);
+            post.setImageUrl(newImageFileName);
+        }
+
+        Post updatedPost = postRepository.save(post);
+        return mapToResponse(updatedPost); // İsimleri ve tam URL'yi alıp döner
+    }
 }

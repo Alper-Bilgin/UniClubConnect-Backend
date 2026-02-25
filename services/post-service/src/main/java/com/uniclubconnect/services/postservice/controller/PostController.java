@@ -51,4 +51,15 @@ public class PostController {
         postService.deletePost(postId, currentUser.getAuthId());
         return ResponseEntity.ok().build();
     }
+
+    // 6. GÖNDERİ GÜNCELLE
+    @PutMapping(value = "/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PostResponse> updatePost(
+            @PathVariable String postId,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        return ResponseEntity.ok(postService.updatePost(postId, content, image, currentUser.getAuthId()));
+    }
 }
