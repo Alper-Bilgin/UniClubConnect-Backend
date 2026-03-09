@@ -26,6 +26,7 @@
         <module>services/notification-service</module>
         <module>services/post-service</module>
         <module>services/interaction-service</module>
+        <module>services/follow-service</module>
     </modules>
 
     <properties>
