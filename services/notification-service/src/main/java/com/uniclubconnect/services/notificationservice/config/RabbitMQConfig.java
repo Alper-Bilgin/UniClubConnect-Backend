@@ -60,4 +60,26 @@ public class RabbitMQConfig {
     public Binding ticketBinding() {
         return BindingBuilder.bind(ticketQueue()).to(notificationExchange()).with(ticketCreatedRoutingKey);
     }
+
+    // 3. Follow Maili Ayarları
+    @Value("${notification.rabbitmq.queue.follow-email}")
+    private String followQueueName;
+
+    @Value("${notification.rabbitmq.exchange.follow}")
+    private String followExchangeName;
+
+    @Value("${notification.rabbitmq.routing-key.follow-event}")
+    private String followRoutingKey;
+
+    // YENİ BEAN'LER
+    @Bean
+    public Queue followQueue() { return new Queue(followQueueName); }
+
+    @Bean
+    public TopicExchange followExchange() { return new TopicExchange(followExchangeName); }
+
+    @Bean
+    public Binding followBinding() {
+        return BindingBuilder.bind(followQueue()).to(followExchange()).with(followRoutingKey);
+    }
 }
