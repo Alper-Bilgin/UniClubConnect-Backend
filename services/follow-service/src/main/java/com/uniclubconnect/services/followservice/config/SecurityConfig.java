@@ -35,6 +35,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/follows/*/followers").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/follows/*/following").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/follows/*/counts").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/follows/*/privacy-status").permitAll()
                         .requestMatchers("/api/follows/**").authenticated()
                         .anyRequest().authenticated()
                 );
