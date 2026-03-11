@@ -2,6 +2,8 @@ package com.uniclubconnect.services.followservice.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -19,13 +21,13 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name="follows",
-        indexes={
-                @Index(name="idx_follower",columnList="follower_id"),
-                @Index(name="idx_following",columnList="following_id")
+        name = "follows",
+        indexes = {
+                @Index(name = "idx_following_status", columnList = "following_id,status"),
+                @Index(name = "idx_follower_status", columnList = "follower_id,status")
         },
-        uniqueConstraints={
-                @UniqueConstraint(columnNames={"follower_id","following_id"})
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"follower_id", "following_id"})
         }
 )
 @Getter
@@ -36,16 +38,20 @@ import java.time.LocalDateTime;
 public class Follow {
 
     @Id
-    @GeneratedValue(strategy= GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="follower_id",nullable=false)
+    @Column(name = "follower_id", nullable = false)
     private String followerId;
 
-    @Column(name="following_id",nullable=false)
+    @Column(name = "following_id", nullable = false)
     private String followingId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private FollowStatus status = FollowStatus.ACCEPTED;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
-
 }
