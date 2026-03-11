@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 // name kısmı, profile servisinin application.yml dosyasındaki spring.application.name değeridir
-@FeignClient(name = "profile-service")
+@FeignClient(name = "user-profile-service")
 public interface ProfileServiceClient {
 
     // Senin Profil servisinde permitAll() yaptığın endpoint

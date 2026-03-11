@@ -1,6 +1,11 @@
 package com.uniclubconnect.services.notificationservice.config;
 
-import org.springframework.amqp.core.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,12 +34,6 @@ public class RabbitMQConfig {
 
     @Value("${notification.rabbitmq.routing-key.ticket-created}")
     private String ticketCreatedRoutingKey;
-
-    // JSON Dönüştürücü
-    @Bean
-    public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
-    }
 
     // Kuyruklar
     @Bean
@@ -81,5 +80,13 @@ public class RabbitMQConfig {
     @Bean
     public Binding followBinding() {
         return BindingBuilder.bind(followQueue()).to(followExchange()).with(followRoutingKey);
+    }
+
+
+    @Bean
+    public MessageConverter jsonMessageConverter() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule()); // Tarih hatasını çözen altın vuruş!
+        return new Jackson2JsonMessageConverter(objectMapper);
     }
 }
