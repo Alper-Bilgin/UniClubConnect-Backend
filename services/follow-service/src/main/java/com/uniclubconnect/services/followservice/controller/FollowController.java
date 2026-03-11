@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,62 +25,81 @@ public class FollowController {
 
     private final FollowService service;
 
-    // 1. Takip Et (POST /api/follows/{targetId})
     @PostMapping("/{targetId}")
     public ResponseEntity<?> follow(
             @AuthenticationPrincipal UserPrincipal user,
             @PathVariable String targetId) {
-
         service.followUser(user.getAuthId(), targetId);
-
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    // 2. Takipten Çık (DELETE /api/follows/{targetId})
     @DeleteMapping("/{targetId}")
     public ResponseEntity<?> unfollow(
             @AuthenticationPrincipal UserPrincipal user,
             @PathVariable String targetId) {
-
         service.unfollowUser(user.getAuthId(), targetId);
-
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    // 3. Takip Ediyor muyum? Kontrolü (Profil ekranı için)
+    // Yeni: Detaylı Status Dönen Endpoint ("NONE", "PENDING", "ACCEPTED")
     @GetMapping("/status/{targetId}")
-    public ResponseEntity<?> isFollowing(
+    public ResponseEntity<?> getFollowStatus(
             @AuthenticationPrincipal UserPrincipal user,
             @PathVariable String targetId) {
-
-        boolean status = service.isFollowing(user.getAuthId(), targetId);
-
-        return ResponseEntity.ok(Map.of("isFollowing", status));
+        String status = service.getFollowStatus(user.getAuthId(), targetId);
+        return ResponseEntity.ok(Map.of("status", status));
     }
 
-    // 4. Takipçi ve Takip Edilen Sayıları (Public)
     @GetMapping("/{userId}/counts")
     public ResponseEntity<?> getStats(@PathVariable String userId) {
         return ResponseEntity.ok(service.getStats(userId));
     }
 
-    // 5. Takipçiler Listesi (Public)
     @GetMapping("/{userId}/followers")
     public ResponseEntity<Page<String>> getFollowers(
             @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-
         return ResponseEntity.ok(service.getFollowers(userId, PageRequest.of(page, size)));
     }
 
-    // 6. Takip Ettikleri Listesi (Public)
     @GetMapping("/{userId}/following")
     public ResponseEntity<Page<String>> getFollowing(
             @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-
         return ResponseEntity.ok(service.getFollowing(userId, PageRequest.of(page, size)));
+    }
+
+    @GetMapping("/requests")
+    public ResponseEntity<Page<String>> getPendingRequests(
+            @AuthenticationPrincipal UserPrincipal user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(service.getPendingRequests(user.getAuthId(), PageRequest.of(page, size)));
+    }
+
+    @PutMapping("/requests/{followerId}/accept")
+    public ResponseEntity<?> acceptRequest(
+            @AuthenticationPrincipal UserPrincipal user,
+            @PathVariable String followerId) {
+        service.acceptRequest(user.getAuthId(), followerId);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @DeleteMapping("/requests/{followerId}/reject")
+    public ResponseEntity<?> rejectRequest(
+            @AuthenticationPrincipal UserPrincipal user,
+            @PathVariable String followerId) {
+        service.rejectRequest(user.getAuthId(), followerId);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PutMapping("/settings/privacy")
+    public ResponseEntity<?> updatePrivacy(
+            @AuthenticationPrincipal UserPrincipal user,
+            @RequestParam boolean isPrivate) {
+        service.togglePrivacy(user.getAuthId(), isPrivate);
+        return ResponseEntity.ok(Map.of("success", true, "isPrivate", isPrivate));
     }
 }
