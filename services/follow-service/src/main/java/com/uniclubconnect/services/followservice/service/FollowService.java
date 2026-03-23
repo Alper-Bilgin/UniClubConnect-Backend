@@ -5,6 +5,7 @@ import com.uniclubconnect.services.followservice.config.RabbitMQConfig;
 import com.uniclubconnect.services.followservice.dto.FollowEvent;
 import com.uniclubconnect.services.followservice.dto.FollowUserDto;
 import com.uniclubconnect.services.followservice.dto.UserProfileDto;
+import com.uniclubconnect.services.followservice.dto.UserRecommendationProjection;
 import com.uniclubconnect.services.followservice.model.Follow;
 import com.uniclubconnect.services.followservice.model.FollowSetting;
 import com.uniclubconnect.services.followservice.model.FollowStatus;
@@ -14,15 +15,18 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -296,5 +300,23 @@ public class FollowService {
                 RabbitMQConfig.ROUTING_KEY,
                 event
         );
+    }
+
+    public List<FollowUserDto> getRecommendations(String userId, int limit) {
+        // En iyi X kişiyi getirmesi için limit koyuyoruz
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<UserRecommendationProjection> projections = repository.getRecommendations(userId, pageable);
+
+        // SQL'den gelen ham ID'leri Profile Service ile isim/resime çevir
+        return projections.stream().map(proj -> {
+            // Zaten var olan yardımcı metodumuzu kullanıyoruz
+            FollowUserDto dto = mapToFollowUserDto(proj.getRecommendedUserId());
+
+            // Ortak arkadaş sayısını da DTO'ya ekle
+            dto.setMutualFriendsCount(proj.getMutualCount());
+
+            return dto;
+        }).collect(Collectors.toList());
     }
 }

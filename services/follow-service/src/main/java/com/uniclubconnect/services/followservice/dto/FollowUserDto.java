@@ -11,4 +11,6 @@ public class FollowUserDto {
     private String lastName;
     private String profileImageUrl;
     private String department;
+
+    private Integer mutualFriendsCount;
 }

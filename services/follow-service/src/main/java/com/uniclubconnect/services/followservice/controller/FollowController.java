@@ -3,18 +3,21 @@ package com.uniclubconnect.services.followservice.controller;
 import com.uniclubconnect.services.followservice.dto.FollowUserDto;
 import com.uniclubconnect.services.followservice.security.dto.UserPrincipal;
 import com.uniclubconnect.services.followservice.service.FollowService;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-
 import org.springframework.http.ResponseEntity;
-
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -186,6 +189,15 @@ public class FollowController {
         return ResponseEntity.ok(
                 Map.of("isPrivate", isPrivate)
         );
+    }
+
+    // --- ÖNERİLENLER ENDPOINT'İ ---
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<FollowUserDto>> getRecommendations(
+            @AuthenticationPrincipal UserPrincipal user,
+            @RequestParam(defaultValue = "5") int limit) { // Varsayılan olarak 5 kişi önerir
+
+        return ResponseEntity.ok(service.getRecommendations(user.getAuthId(), limit));
     }
 
 }
