@@ -1,16 +1,21 @@
 package com.uniclubconnect.services.postservice.service;
 
+import com.uniclubconnect.services.postservice.client.ProfileServiceClient;
+import com.uniclubconnect.services.postservice.dto.PostEvent;
 import com.uniclubconnect.services.postservice.dto.PostResponse;
+import com.uniclubconnect.services.postservice.dto.UserProfileDto;
 import com.uniclubconnect.services.postservice.entity.Post;
 import com.uniclubconnect.services.postservice.exception.PostNotFoundException;
 import com.uniclubconnect.services.postservice.repository.PostRepository;
-import com.uniclubconnect.services.postservice.client.ProfileServiceClient;
-import com.uniclubconnect.services.postservice.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,11 +24,20 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final MinioService minioService;
-    private final ProfileServiceClient profileServiceClient; // <-- EKLENDİ
+    private final ProfileServiceClient profileServiceClient;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${post.rabbitmq.exchange}")
+    private String exchange;
+
+    @Value("${post.rabbitmq.routing-key.post-created}")
+    private String postCreatedRoutingKey;
+
+    @Value("${post.rabbitmq.routing-key.post-deleted}")
+    private String postDeletedRoutingKey;
 
     public PostResponse createPost(String content, MultipartFile image, String userId) {
         String imageFileName = null;
-
         if (image != null && !image.isEmpty()) {
             imageFileName = minioService.uploadFile(image);
         }
@@ -34,7 +48,22 @@ public class PostService {
                 .imageUrl(imageFileName)
                 .build();
 
-        return mapToResponse(postRepository.save(post));
+        Post savedPost = postRepository.save(post);
+
+        // --- RabbitMQ'ya Mesaj At ---
+        PostEvent event = PostEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .postId(savedPost.getId())
+                .authorId(userId)
+                .eventType("POST_CREATED")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        rabbitTemplate.convertAndSend(exchange, postCreatedRoutingKey, event);
+        System.out.println("Post Event Fırlatıldı: " + savedPost.getId());
+        // ------------------------------------------------
+
+        return mapToResponse(savedPost);
     }
 
     public List<PostResponse> getAllPosts() {
@@ -67,6 +96,19 @@ public class PostService {
         }
 
         postRepository.delete(post);
+
+        // --- RabbitMQ'ya Mesaj At ---
+        PostEvent event = PostEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .postId(postId)
+                .authorId(userId)
+                .eventType("POST_DELETED")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        rabbitTemplate.convertAndSend(exchange, postDeletedRoutingKey, event);
+        System.out.println("Post Delete Event Fırlatıldı: " + postId);
+        // ------------------------------------------------
     }
 
     private PostResponse mapToResponse(Post post) {
