@@ -62,4 +62,9 @@ public class PostController {
 
         return ResponseEntity.ok(postService.updatePost(postId, content, image, currentUser.getAuthId()));
     }
+
+    @PostMapping("/batch")
+    public ResponseEntity<List<PostResponse>> getPostsByIds(@RequestBody List<String> postIds) {
+        return ResponseEntity.ok(postService.getPostsByIds(postIds));
+    }
 }

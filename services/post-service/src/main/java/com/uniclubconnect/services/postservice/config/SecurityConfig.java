@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").authenticated()
 
+                        .requestMatchers("/api/posts/batch").permitAll()
                         // diğer tüm istekler
                         .anyRequest().authenticated()
                 );

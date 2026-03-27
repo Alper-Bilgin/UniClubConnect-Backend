@@ -171,4 +171,11 @@ public class PostService {
         Post updatedPost = postRepository.save(post);
         return mapToResponse(updatedPost); // İsimleri ve tam URL'yi alıp döner
     }
+
+    public List<PostResponse> getPostsByIds(List<String> postIds) {
+        return postRepository.findAllById(postIds)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
 }
