@@ -172,9 +172,9 @@ public class PostService {
         return mapToResponse(updatedPost); // İsimleri ve tam URL'yi alıp döner
     }
 
+    // fonk güncellendi
     public List<PostResponse> getPostsByIds(List<String> postIds) {
-        return postRepository.findAllById(postIds)
-                .stream()
+        return postRepository.findAllById(postIds).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
