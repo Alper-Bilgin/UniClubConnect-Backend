@@ -2,6 +2,7 @@ package com.uniclubconnect.services.postservice.service;
 
 import com.uniclubconnect.services.postservice.client.ProfileServiceClient;
 import com.uniclubconnect.services.postservice.dto.PostEvent;
+import com.uniclubconnect.services.postservice.dto.PostEventType;
 import com.uniclubconnect.services.postservice.dto.PostResponse;
 import com.uniclubconnect.services.postservice.dto.UserProfileDto;
 import com.uniclubconnect.services.postservice.entity.Post;
@@ -55,7 +56,7 @@ public class PostService {
                 .eventId(UUID.randomUUID().toString())
                 .postId(savedPost.getId())
                 .authorId(userId)
-                .eventType("POST_CREATED")
+                .eventType(PostEventType.POST_CREATED)
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -102,7 +103,7 @@ public class PostService {
                 .eventId(UUID.randomUUID().toString())
                 .postId(postId)
                 .authorId(userId)
-                .eventType("POST_DELETED")
+                .eventType(PostEventType.POST_DELETED)
                 .timestamp(LocalDateTime.now())
                 .build();
 

@@ -9,6 +9,6 @@ public class PostEvent implements Serializable {
     private String eventId;
     private String postId;
     private String authorId;
-    private String eventType; // "POST_CREATED" veya "POST_DELETED"
+    private PostEventType eventType; // Enum eklendi
     private LocalDateTime timestamp;
 }

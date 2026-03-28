@@ -1,14 +1,15 @@
 package com.uniclubconnect.services.feedservice.service;
 
-import com.uniclubconnect.services.feedservice.client.FollowServiceClient;
-import com.uniclubconnect.services.feedservice.client.PostServiceClient;
+import com.uniclubconnect.services.feedservice.client.FollowClient;
+import com.uniclubconnect.services.feedservice.client.PostClient;
+import com.uniclubconnect.services.feedservice.dto.FollowUserDto;
+import com.uniclubconnect.services.feedservice.dto.PageResponse;
 import com.uniclubconnect.services.feedservice.dto.PostEvent;
 import com.uniclubconnect.services.feedservice.dto.PostResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -17,73 +18,65 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeedService {
 
-    private final StringRedisTemplate redisTemplate;
-    private final FollowServiceClient followServiceClient;
-    private final PostServiceClient postServiceClient;
+    private final StringRedisTemplate redis;
+    private final FollowClient followClient;
+    private final PostClient postClient;
 
-    private static final String FEED_KEY_PREFIX = "feed:";
-    private static final int MAX_FEED_SIZE = 500; // Bir kullanıcının feed'inde en fazla 500 post tutalım
+    private static final String FEED_KEY = "feed:";
 
-    // --- 1. YENİ POST GELDİĞİNDE (FAN-OUT PUSH) ---
-    public void pushPostToFeeds(PostEvent event) {
-        String postId = event.getPostId();
+    // YENİ POST ATILDIĞINDA
+    public void handlePostCreated(PostEvent event) {
         String authorId = event.getAuthorId();
+        String postId = event.getPostId();
 
-        // 1. Postu atanın takipçilerini bul
-        List<String> followerIds = followServiceClient.getFollowers(authorId).getContent();
+        // 1. DTO olarak takipçileri çekiyoruz
+        PageResponse<FollowUserDto> followers = followClient.getFollowers(authorId, 0, 1000);
 
-        // 2. Kendi feed'ine de ekle (Kendi postlarını da görsün)
-        followerIds.add(authorId);
-
-        // 3. Her bir takipçinin Redis listesine post ID'sini ekle (En başa - Left Push)
-        for (String followerId : followerIds) {
-            String redisKey = FEED_KEY_PREFIX + followerId;
-            redisTemplate.opsForList().leftPush(redisKey, postId);
-
-            // Feed çok şişmesin diye sondakileri kırp (Bellek optimizasyonu)
-            redisTemplate.opsForList().trim(redisKey, 0, MAX_FEED_SIZE - 1);
+        // 2. Eğer content null gelirse patlamasın diye kontrol ediyoruz
+        if (followers.getContent() == null) {
+            return;
         }
-        System.out.println("Post " + postId + ", " + followerIds.size() + " kişinin akışına eklendi.");
+
+        // 3. DTO'ların içindeki sadece 'id' alanlarını alıp String listesine çeviriyoruz
+        List<String> targetFeeds = followers.getContent().stream()
+                .map(FollowUserDto::getId)
+                .collect(java.util.stream.Collectors.toList());
+
+        // 4. Postu atanı da kendi akışına ekle
+        targetFeeds.add(authorId);
+
+        for (String followerId : targetFeeds) {
+            redis.opsForList().leftPush(FEED_KEY + followerId, postId);
+            redis.opsForList().trim(FEED_KEY + followerId, 0, 500);
+        }
     }
 
-    // --- 2. POST SİLİNDİĞİNDE (REMOVE FROM FEEDS) ---
-    public void removePostFromFeeds(PostEvent event) {
-        String postId = event.getPostId();
-        String authorId = event.getAuthorId();
-
-        List<String> followerIds = followServiceClient.getFollowers(authorId).getContent();
-        followerIds.add(authorId);
-
-        for (String followerId : followerIds) {
-            String redisKey = FEED_KEY_PREFIX + followerId;
-            // Listeden o post ID'sini bul ve sil
-            redisTemplate.opsForList().remove(redisKey, 0, postId);
-        }
-        System.out.println("Post " + postId + ", akışlardan silindi.");
+    // POST SİLİNDİĞİNDE (LAZY DELETE STRATEJİSİ)
+    public void handlePostDeleted(PostEvent event) {
+        // İÇİ BOŞ! Neden? Çünkü 1000 kişinin Redis listesini tek tek dönüp
+        // silmek (O(N) işlemi) sistemi kilitler.
+        // Bunun yerine aşağıda getFeed metodunda "Lazy Delete" yapacağız.
     }
 
-    // --- 3. KULLANICI AKIŞINI ÇAĞIRDIĞINDA (GET FEED) ---
-    public List<PostResponse> getUserFeed(String userId, int page, int size) {
-        String redisKey = FEED_KEY_PREFIX + userId;
-
+    // FEED'İ GETİR VE ZENGİNLEŞTİR
+    public List<PostResponse> getFeed(String userId, int page, int size) {
         int start = page * size;
         int end = start + size - 1;
 
-        // 1. Redis'ten o sayfanın Post ID'lerini çek
-        List<String> postIds = redisTemplate.opsForList().range(redisKey, start, end);
+        // 1. Redis'ten ID'leri çek
+        List<String> postIds = redis.opsForList().range(FEED_KEY + userId, start, end);
 
-        if (postIds == null || postIds.isEmpty()) {
-            return Collections.emptyList(); // Akış boş
-        }
+        if (postIds == null || postIds.isEmpty()) return List.of();
 
-        // 2. Post Service'e gidip bu ID'lerin detaylarını BATCH olarak çek
-        List<PostResponse> posts = postServiceClient.getPostsByIds(postIds);
+        // 2. Post Service'ten Batch olarak içerikleri çek
+        List<PostResponse> posts = postClient.getPostsByIds(postIds);
 
-        // 3. Post Service postları ID sırasına göre dönmeyebilir.
-        // Redis'teki orijinal sıraya (En yeniler en üstte) göre tekrar dizmeliyiz.
+        // 3. LAZY DELETE MANTIĞI:
+        // Redis'te ID var ama Post silinmişse, Post Service null döner.
+        // Null olanları filtreleyerek silinmiş postları kullanıcıya göstermeyiz!
         return postIds.stream()
                 .map(id -> posts.stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null))
-                .filter(Objects::nonNull)
+                .filter(Objects::nonNull) // SİLİNMİŞLER BURADA ELENİR!
                 .collect(Collectors.toList());
     }
 }

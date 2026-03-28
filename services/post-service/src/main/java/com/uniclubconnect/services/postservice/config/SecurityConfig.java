@@ -40,12 +40,14 @@ public class SecurityConfig {
                         // 🔓 PUBLIC GET ENDPOINTS
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
 
-                        // 🔒 AUTH REQUIRED
+                        // 👇 ÖZEL KURAL EN ÜSTE YAZILMALI (Bunu buraya taşıdık)
+                        .requestMatchers(HttpMethod.POST, "/api/posts/batch").permitAll()
+
+                        // 🔒 AUTH REQUIRED (Genel kural alta kalmalı)
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").authenticated()
 
-                        .requestMatchers("/api/posts/batch").permitAll()
                         // diğer tüm istekler
                         .anyRequest().authenticated()
                 );

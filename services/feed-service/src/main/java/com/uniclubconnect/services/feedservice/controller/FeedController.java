@@ -21,11 +21,11 @@ public class FeedController {
     private final FeedService feedService;
 
     @GetMapping
-    public ResponseEntity<List<PostResponse>> getMyFeed(
-            @AuthenticationPrincipal UserPrincipal currentUser,
+    public ResponseEntity<List<PostResponse>> getFeed(
+            @AuthenticationPrincipal UserPrincipal user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        return ResponseEntity.ok(feedService.getUserFeed(currentUser.getAuthId(), page, size));
+        return ResponseEntity.ok(feedService.getFeed(user.getAuthId(), page, size));
     }
 }
