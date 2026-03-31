@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -29,36 +31,44 @@ public class FeedService {
         String authorId = event.getAuthorId();
         String postId = event.getPostId();
 
-        // 1. DTO olarak takipçileri çekiyoruz
+        // 1. Takipçileri çek
         PageResponse<FollowUserDto> followers = followClient.getFollowers(authorId, 0, 1000);
 
-        // 2. Eğer content null gelirse patlamasın diye kontrol ediyoruz
-        if (followers.getContent() == null) {
-            return;
-        }
+        if (followers.getContent() == null) return;
 
-        // 3. DTO'ların içindeki sadece 'id' alanlarını alıp String listesine çeviriyoruz
+        // 2. followerId kullan (FIX)
         List<String> targetFeeds = followers.getContent().stream()
-                .map(FollowUserDto::getId)
-                .collect(java.util.stream.Collectors.toList());
+                .map(FollowUserDto::getFollowerId)
+                .collect(Collectors.toList());
 
-        // 4. Postu atanı da kendi akışına ekle
+        // 3. Postu atan kullanıcıyı da ekle
         targetFeeds.add(authorId);
 
+        // 4. Feed’lere yaz
         for (String followerId : targetFeeds) {
-            redis.opsForList().leftPush(FEED_KEY + followerId, postId);
-            redis.opsForList().trim(FEED_KEY + followerId, 0, 500);
+            String redisKey = FEED_KEY + followerId;
+
+            // 🔹 Duplicate önleme
+            redis.opsForList().remove(redisKey, 1, postId);
+
+            // 🔹 Yeni post ekle
+            redis.opsForList().leftPush(redisKey, postId);
+
+            // 🔹 Maksimum 500 post tut
+            redis.opsForList().trim(redisKey, 0, 500);
+
+            // 🔹 TTL (7 gün)
+            redis.expire(redisKey, Duration.ofDays(7));
         }
     }
 
-    // POST SİLİNDİĞİNDE (LAZY DELETE STRATEJİSİ)
+    // POST SİLİNDİĞİNDE (LAZY DELETE)
     public void handlePostDeleted(PostEvent event) {
-        // İÇİ BOŞ! Neden? Çünkü 1000 kişinin Redis listesini tek tek dönüp
-        // silmek (O(N) işlemi) sistemi kilitler.
-        // Bunun yerine aşağıda getFeed metodunda "Lazy Delete" yapacağız.
+        // Bilerek boş bırakıldı.
+        // Lazy delete getFeed içinde yapılır.
     }
 
-    // FEED'İ GETİR VE ZENGİNLEŞTİR
+    // FEED GETİR
     public List<PostResponse> getFeed(String userId, int page, int size) {
         int start = page * size;
         int end = start + size - 1;
@@ -68,15 +78,17 @@ public class FeedService {
 
         if (postIds == null || postIds.isEmpty()) return List.of();
 
-        // 2. Post Service'ten Batch olarak içerikleri çek
+        // 2. Post servisinden içerikleri çek
         List<PostResponse> posts = postClient.getPostsByIds(postIds);
 
-        // 3. LAZY DELETE MANTIĞI:
-        // Redis'te ID var ama Post silinmişse, Post Service null döner.
-        // Null olanları filtreleyerek silinmiş postları kullanıcıya göstermeyiz!
+        // 🔹 O(N²) → O(N) fix (Map kullanımı)
+        Map<String, PostResponse> postMap = posts.stream()
+                .collect(Collectors.toMap(PostResponse::getId, p -> p));
+
+        // 3. Lazy delete filtreleme
         return postIds.stream()
-                .map(id -> posts.stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null))
-                .filter(Objects::nonNull) // SİLİNMİŞLER BURADA ELENİR!
+                .map(postMap::get)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 }
