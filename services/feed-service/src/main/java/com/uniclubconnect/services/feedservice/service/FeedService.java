@@ -38,7 +38,7 @@ public class FeedService {
 
         // 2. followerId kullan (FIX)
         List<String> targetFeeds = followers.getContent().stream()
-                .map(FollowUserDto::getFollowerId)
+                .map(FollowUserDto::getId)
                 .collect(Collectors.toList());
 
         // 3. Postu atan kullanıcıyı da ekle

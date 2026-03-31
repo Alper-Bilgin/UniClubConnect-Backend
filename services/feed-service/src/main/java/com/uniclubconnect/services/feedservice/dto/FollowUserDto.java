@@ -6,5 +6,5 @@ import lombok.Data;
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class FollowUserDto {
-    private String followerId;
+    private String id;
 }
