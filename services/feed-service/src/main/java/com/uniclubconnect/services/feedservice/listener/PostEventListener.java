@@ -21,21 +21,44 @@ public class PostEventListener {
     )
     public void handlePostEvent(PostEvent event) {
 
-        // 🔹 Mesaj geldiğinde logla
-        log.info("RabbitMQ mesaj alındı | EventType: {} | PostId: {}",
-                event.getEventType(), event.getPostId());
+        //  Null & invalid event guard
+        if (event == null || event.getEventType() == null) {
+            log.warn("invalid_event_received event={}", event);
+            return;
+        }
+
+        //  Structured logging (production-friendly)
+        log.info("event_received type={} postId={} authorId={}",
+                event.getEventType(),
+                event.getPostId(),
+                event.getAuthorId());
 
         try {
             if (event.getEventType() == PostEventType.POST_CREATED) {
+
                 feedService.handlePostCreated(event);
-            }
-            else if (event.getEventType() == PostEventType.POST_DELETED) {
+
+            } else if (event.getEventType() == PostEventType.POST_DELETED) {
+
                 feedService.handlePostDeleted(event);
+
+            } else {
+                //  Unknown event tipi (silent fail önlenir)
+                log.warn("unknown_event_type type={} eventId={}",
+                        event.getEventType(),
+                        event.getEventId());
             }
 
         } catch (Exception e) {
-            // 🔹 Profesyonel error log
-            log.error("Feed işlenirken hata oluştu | PostId: {}", event.getPostId(), e);
+            //  Full context error log
+            log.error("feed_processing_error eventId={} postId={} authorId={}",
+                    event.getEventId(),
+                    event.getPostId(),
+                    event.getAuthorId(),
+                    e);
+
+            //  Retry / DLQ mekanizması için exception tekrar fırlatılır
+            throw e;
         }
     }
 }
