@@ -75,6 +75,12 @@ public class AuthService {
     @Value("${auth.rabbitmq.routing-key}")
     private String routingKey;
 
+    @Value("${gamification.rabbitmq.exchange}")
+    private String gamificationExchange;
+
+    @Value("${gamification.rabbitmq.routing-key}")
+    private String gamificationRoutingKey;
+
     // ----------------------------------------------------------------
     //  1. KULLANICI KAYIT
     // ----------------------------------------------------------------
@@ -218,6 +224,22 @@ public class AuthService {
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
 
+            // 👇👇 YENİ EKLENEN KISIM: Başarılı girişi Gamification'a bildir 👇👇
+            try {
+                com.uniclubconnect.services.authservice.dto.GamificationEvent event =
+                        com.uniclubconnect.services.authservice.dto.GamificationEvent.builder()
+                                .userId(userDetails.getId())
+                                .eventType(com.uniclubconnect.services.authservice.dto.EventType.USER_LOGIN)
+                                .timestamp(LocalDateTime.now())
+                                .build();
+
+                rabbitTemplate.convertAndSend(gamificationExchange, gamificationRoutingKey, event);
+                logger.info("Gamification eventi (USER_LOGIN) fırlatıldı: {}", userDetails.getEmail());
+            } catch (Exception e) {
+                logger.error("Gamification'a mesaj gönderilirken hata oluştu: {}", e.getMessage());
+            }
+            // 👆👆 YENİ EKLENEN KISIM BİTTİ 👆👆
+
             return new AuthResponse(
                     accessToken,
                     refreshToken,
@@ -227,7 +249,6 @@ public class AuthService {
             );
 
         } catch (DisabledException e) {
-            // Önemli: Buradan RuntimeException değil, DisabledException fırlat ki Handler yakalasın
             throw new DisabledException("Hesap doğrulanmadı");
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException("Hatalı giriş");

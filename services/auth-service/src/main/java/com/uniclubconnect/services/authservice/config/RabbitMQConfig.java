@@ -10,15 +10,24 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    // YAML dosyasındaki "auth.rabbitmq.exchange" değerini okur
+    // Mevcut Auth Exchange
     @Value("${auth.rabbitmq.exchange}")
-    private String exchangeName;
+    private String authExchangeName;
 
-    // Sadece Exchange (Dağıtıcı) tanımlıyoruz.
-    // Kuyrukları (Queue) dinleyen servisler (Notification, Profile) kendileri oluşturacak.
+    // YENİ: Gamification Exchange
+    @Value("${gamification.rabbitmq.exchange}")
+    private String gamificationExchangeName;
+
+    // Mevcut Bean'in adını authExchange yaptık ki Spring'in kafası karışmasın
     @Bean
-    public TopicExchange exchange() {
-        return new TopicExchange(exchangeName);
+    public TopicExchange authExchange() {
+        return new TopicExchange(authExchangeName);
+    }
+
+    // YENİ: Gamification Exchange Bean'i
+    @Bean
+    public TopicExchange gamificationExchange() {
+        return new TopicExchange(gamificationExchangeName);
     }
 
     // Mesajları JSON formatında göndermek için dönüştürücü

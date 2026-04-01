@@ -9,3 +9,7 @@ spring:
     config:
       # Config Server'ın adresi
       uri: http://localhost:8888
+gamification:
+  rabbitmq:
+    exchange: gamification.exchange
+    routing-key: gamification.event.user.login
