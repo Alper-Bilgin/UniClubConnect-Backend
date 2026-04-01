@@ -15,10 +15,20 @@ public class RabbitMQConfig {
     @Value("${post.rabbitmq.exchange}")
     private String exchange;
 
+    // YENİ: Gamification Exchange
+    @Value("${gamification.rabbitmq.exchange}")
+    private String gamificationExchangeName;
+
     // 1. Exchange'i kalıcı (durable=true) yapıyoruz ki RabbitMQ çökse bile silinmesin.
     @Bean
     public TopicExchange postExchange() {
         return new TopicExchange(exchange, true, false);
+    }
+
+    // YENİ: Gamification Exchange (Puan ve Rozetler için)
+    @Bean
+    public TopicExchange gamificationExchange() {
+        return new TopicExchange(gamificationExchangeName, true, false);
     }
 
     // 2. Mesaj dönüştürücü
@@ -29,7 +39,7 @@ public class RabbitMQConfig {
         return new Jackson2JsonMessageConverter(objectMapper);
     }
 
-    // 3. KRİTİK DÜZELTME: RabbitTemplate'in global olarak bu dönüştürücüyü kullanmasını zorluyoruz!
+    // Gamifaction için düzeltildi
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter messageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);

@@ -24,4 +24,7 @@ public class UserPoint {
 
     @Builder.Default
     private int currentLevel = 1; // Kullanıcının seviyesi (Level)
+
+    @Builder.Default
+    private int postCount = 0;
 }

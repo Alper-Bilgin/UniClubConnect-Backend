@@ -37,6 +37,12 @@ public class PostService {
     @Value("${post.rabbitmq.routing-key.post-deleted}")
     private String postDeletedRoutingKey;
 
+    @Value("${gamification.rabbitmq.exchange}")
+    private String gamificationExchange;
+
+    @Value("${gamification.rabbitmq.routing-key}")
+    private String gamificationRoutingKey;
+
     public PostResponse createPost(String content, MultipartFile image, String userId) {
         String imageFileName = null;
         if (image != null && !image.isEmpty()) {
@@ -51,7 +57,7 @@ public class PostService {
 
         Post savedPost = postRepository.save(post);
 
-        // --- RabbitMQ'ya Mesaj At ---
+        // --- 1. MEVCUT: Feed Servisine Mesaj At ---
         PostEvent event = PostEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .postId(savedPost.getId())
@@ -62,7 +68,23 @@ public class PostService {
 
         rabbitTemplate.convertAndSend(exchange, postCreatedRoutingKey, event);
         System.out.println("Post Event Fırlatıldı: " + savedPost.getId());
-        // ------------------------------------------------
+
+        // 👇👇 2. YENİ EKLENEN: Gamification Servisine Mesaj At 👇👇
+        try {
+            com.uniclubconnect.services.postservice.dto.GamificationEvent gamificationEvent =
+                    com.uniclubconnect.services.postservice.dto.GamificationEvent.builder()
+                            .userId(userId)
+                            .eventType(com.uniclubconnect.services.postservice.dto.EventType.POST_CREATED)
+                            .referenceId(savedPost.getId())
+                            .timestamp(LocalDateTime.now())
+                            .build();
+
+            rabbitTemplate.convertAndSend(gamificationExchange, gamificationRoutingKey, gamificationEvent);
+            System.out.println("Gamification eventi (POST_CREATED) fırlatıldı!");
+        } catch (Exception e) {
+            System.err.println("Gamification mesajı gönderilemedi: " + e.getMessage());
+        }
+        // 👆👆 YENİ EKLENEN BİTTİ 👆👆
 
         return mapToResponse(savedPost);
     }

@@ -14,23 +14,37 @@ public class BadgeDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Eğer veritabanında hiç rozet yoksa, başlangıç rozetlerini ekle
-        if (badgeRepository.count() == 0) {
+
+        // HELLO_WORLD
+        if (!badgeRepository.existsById("HELLO_WORLD")) {
             badgeRepository.save(Badge.builder()
                     .id("HELLO_WORLD")
                     .name("Merhaba Dünyalı 👽")
                     .description("UniClub Connect evrenine ilk adımını attın!")
-                    .xpReward(50) // Bu rozeti kazanana ekstra 50 XP
+                    .xpReward(50)
                     .build());
+        }
 
+        // FIRST_POST
+        if (!badgeRepository.existsById("FIRST_POST")) {
             badgeRepository.save(Badge.builder()
                     .id("FIRST_POST")
                     .name("İlk Söz 🎤")
                     .description("Sistemde ilk gönderini paylaştın, sesini duyurdun!")
                     .xpReward(100)
                     .build());
-
-            System.out.println("✅ Başlangıç rozetleri (HELLO_WORLD, FIRST_POST) veritabanına başarıyla eklendi!");
         }
+
+        // FIVE_POSTS
+        if (!badgeRepository.existsById("FIVE_POSTS")) {
+            badgeRepository.save(Badge.builder()
+                    .id("FIVE_POSTS")
+                    .name("Seri Üretim 🏭")
+                    .description("Sistemde 5 gönderiye ulaştın, hız kesmeden devam ediyorsun!")
+                    .xpReward(200)
+                    .build());
+        }
+
+        System.out.println("✅ Rozetler kontrol edildi ve eksikler eklendi!");
     }
 }

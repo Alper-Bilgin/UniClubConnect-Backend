@@ -31,11 +31,17 @@ public class GamificationEngine {
 
         // 1. HER İŞLEM İÇİN STANDART PUAN EKLE (+10 XP)
         UserPoint userPoint = userPointRepository.findById(userId)
-                .orElse(UserPoint.builder().userId(userId).totalXp(0).currentLevel(1).build());
+                .orElse(UserPoint.builder().userId(userId).totalXp(0).currentLevel(1).postCount(0).build());
 
         userPoint.setTotalXp(userPoint.getTotalXp() + 10);
-        userPoint.setCurrentLevel((userPoint.getTotalXp() / 100) + 1); // Her 100 XP'de 1 Seviye atlar!
-        userPointRepository.save(userPoint);
+        userPoint.setCurrentLevel((userPoint.getTotalXp() / 100) + 1);
+
+        // 👇 YENİ: Eğer post atıldıysa sayacı 1 artır 👇
+        if (event.getEventType() == com.uniclubconnect.services.gamificationservice.dto.EventType.POST_CREATED) {
+            userPoint.setPostCount(userPoint.getPostCount() + 1);
+        }
+
+        userPointRepository.save(userPoint); // Kaydet
 
         // 2. KURAL MOTORUNU ÇALIŞTIR VE ROZETLERİ DAĞIT
         for (BadgeRule rule : rules) {
