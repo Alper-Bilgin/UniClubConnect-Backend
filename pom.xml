@@ -28,6 +28,7 @@
         <module>services/interaction-service</module>
         <module>services/follow-service</module>
         <module>services/feed-service</module>
+        <module>services/gamification-service</module>
     </modules>
 
     <properties>
