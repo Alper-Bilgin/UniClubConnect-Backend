@@ -33,4 +33,8 @@ public class GamificationQueryService {
         return dailyStreakRepository.findById(userId)
                 .orElse(DailyStreak.builder().userId(userId).currentStreak(0).longestStreak(0).build());
     }
+
+    public List<UserPoint> getLeaderboard() {
+        return userPointRepository.findTop10ByOrderByTotalXpDesc();
+    }
 }

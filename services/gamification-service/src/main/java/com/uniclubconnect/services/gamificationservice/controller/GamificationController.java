@@ -33,7 +33,7 @@ public class GamificationController {
         return ResponseEntity.ok(queryService.getUserBadges(userId));
     }
 
-    // 3. Kullanıcının Günlük Giriş Serisi
+    // 3. Ham Streak Verisi (Alternatif)
     @GetMapping("/{userId}/streak")
     public ResponseEntity<DailyStreak> getUserStreak(@PathVariable String userId) {
         return ResponseEntity.ok(queryService.getUserStreak(userId));
@@ -46,6 +46,25 @@ public class GamificationController {
                 "points", queryService.getUserPoints(userId),
                 "streak", queryService.getUserStreak(userId),
                 "badges", queryService.getUserBadges(userId)
+        ));
+    }
+
+    // 👇 YENİ EKLENENLER 👇
+
+    // 5. Liderlik Tablosu (Top 10)
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<UserPoint>> getLeaderboard() {
+        return ResponseEntity.ok(queryService.getLeaderboard());
+    }
+
+    // 6. Belirli bir kullanıcının güncel seri durumu (Daha formatlı)
+    @GetMapping("/{userId}/streak-info")
+    public ResponseEntity<Map<String, Object>> getStreakInfo(@PathVariable String userId) {
+        DailyStreak streak = queryService.getUserStreak(userId);
+        return ResponseEntity.ok(Map.of(
+                "currentStreak", streak.getCurrentStreak(),
+                "longestStreak", streak.getLongestStreak(),
+                "lastLogin", streak.getLastLoginDate() != null ? streak.getLastLoginDate() : "Hiç giriş yapılmadı"
         ));
     }
 }
