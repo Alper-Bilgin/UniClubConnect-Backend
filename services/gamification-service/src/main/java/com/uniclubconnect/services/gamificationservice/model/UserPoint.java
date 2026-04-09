@@ -33,4 +33,7 @@ public class UserPoint {
 
     @Builder.Default
     private int commentCount = 0; // Toplam yaptığı yorum
+
+    @Builder.Default
+    private int eventCount = 0; // Katıldığı etkinlik sayısı
 }

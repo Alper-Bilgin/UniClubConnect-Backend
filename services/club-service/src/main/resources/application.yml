@@ -1,8 +1,12 @@
 spring:
   application:
-    name: club-service # Eureka'daki ad? (Gateway rotas? için önemli)
+    name: club-service # Eureka'daki ad? (Gateway rotas? iï¿½in ï¿½nemli)
   config:
     import: "configserver:"
   cloud:
     config:
       uri: http://localhost:8888
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1

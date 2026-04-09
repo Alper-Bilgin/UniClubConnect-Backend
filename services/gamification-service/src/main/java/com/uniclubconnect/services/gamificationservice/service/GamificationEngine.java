@@ -52,6 +52,7 @@ public class GamificationEngine {
             case POST_CREATED -> userPoint.setPostCount(userPoint.getPostCount() + 1);
             case POST_LIKED -> userPoint.setLikeCount(userPoint.getLikeCount() + 1);
             case COMMENT_ADDED -> userPoint.setCommentCount(userPoint.getCommentCount() + 1);
+            case EVENT_JOINED -> userPoint.setEventCount(userPoint.getEventCount() + 1); // YENİ
         }
 
         // Değişiklikleri Kaydet

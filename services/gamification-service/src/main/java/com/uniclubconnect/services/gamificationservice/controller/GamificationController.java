@@ -1,5 +1,6 @@
 package com.uniclubconnect.services.gamificationservice.controller;
 
+import com.uniclubconnect.services.gamificationservice.dto.LeaderboardEntryDto;
 import com.uniclubconnect.services.gamificationservice.model.DailyStreak;
 import com.uniclubconnect.services.gamificationservice.model.UserBadge;
 import com.uniclubconnect.services.gamificationservice.model.UserPoint;
@@ -51,9 +52,9 @@ public class GamificationController {
 
     // 👇 YENİ EKLENENLER 👇
 
-    // 5. Liderlik Tablosu (Top 10)
+    // 5. Liderlik Tablosu (Top 10) - DÜZELTİLDİ
     @GetMapping("/leaderboard")
-    public ResponseEntity<List<UserPoint>> getLeaderboard() {
+    public ResponseEntity<List<LeaderboardEntryDto>> getLeaderboard() {
         return ResponseEntity.ok(queryService.getLeaderboard());
     }
 

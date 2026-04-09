@@ -145,6 +145,42 @@ public class BadgeDataSeeder implements CommandLineRunner {
         if (!badgeRepository.existsById("COMMENT_1000")) {
             badgeRepository.save(Badge.builder().id("COMMENT_1000").name("FORUM LİDERİ 🏛️").description("1000 yorum! Burası senin mekanın!").xpReward(5000).build());
         }
+        // 🎉 ETKİNLİK ROZETLERİ
+        if (!badgeRepository.existsById("EVENT_1")) {
+            badgeRepository.save(Badge.builder()
+                    .id("EVENT_1")
+                    .name("İlk Adım 🚶")
+                    .description("İlk kulüp etkinliğine katıldın!")
+                    .xpReward(100)
+                    .build());
+        }
+
+        if (!badgeRepository.existsById("EVENT_5")) {
+            badgeRepository.save(Badge.builder()
+                    .id("EVENT_5")
+                    .name("Girişken 🙋‍♂️")
+                    .description("5 farklı etkinliğe katıldın.")
+                    .xpReward(250)
+                    .build());
+        }
+
+        if (!badgeRepository.existsById("EVENT_10")) {
+            badgeRepository.save(Badge.builder()
+                    .id("EVENT_10")
+                    .name("Sosyal Kelebek 🦋")
+                    .description("10 etkinlikle kulüplerin aranan yüzü oldun!")
+                    .xpReward(600)
+                    .build());
+        }
+
+        if (!badgeRepository.existsById("EVENT_50")) {
+            badgeRepository.save(Badge.builder()
+                    .id("EVENT_50")
+                    .name("PARTİ CANAVARI 🎉")
+                    .description("İnanılmaz! 50 etkinliğe katıldın!")
+                    .xpReward(2000)
+                    .build());
+        }
 
         System.out.println("✅ Rozetler kontrol edildi ve eksikler eklendi!");
     }

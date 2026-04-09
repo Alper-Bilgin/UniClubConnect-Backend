@@ -3,6 +3,15 @@ spring:
     name: registration-service
   config:
     import: "configserver:"
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
 cloud:
   config:
     uri: http://localhost:8888
+    
+gamification:
+  rabbitmq:
+    exchange: gamification.exchange
+    routing-key: gamification.event.interaction

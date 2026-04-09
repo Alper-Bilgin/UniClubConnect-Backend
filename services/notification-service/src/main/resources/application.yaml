@@ -2,6 +2,11 @@ spring:
   application:
     name: notification-service
 
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
   config:
     import: "configserver:"
 

@@ -2,6 +2,8 @@ package com.uniclubconnect.services.registrationservice.service;
 
 import com.uniclubconnect.services.registrationservice.client.EventServiceClient;
 import com.uniclubconnect.services.registrationservice.dto.EventDto;
+import com.uniclubconnect.services.registrationservice.dto.EventType;
+import com.uniclubconnect.services.registrationservice.dto.GamificationEvent;
 import com.uniclubconnect.services.registrationservice.dto.TicketValidationResponse;
 import com.uniclubconnect.services.registrationservice.entity.ERegistrationStatus;
 import com.uniclubconnect.services.registrationservice.entity.Registration;
@@ -14,6 +16,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +33,12 @@ public class RegistrationService {
 
     @Value("${spring.rabbitmq.routingkey.ticket_created}")
     private String ticketCreatedKey;
+
+    @Value("${gamification.rabbitmq.exchange:gamification.exchange}")
+    private String gamificationExchange;
+
+    @Value("${gamification.rabbitmq.routing-key:gamification.event.event}")
+    private String gamificationRoutingKey;
 
     // ----------------------------------------------------------------
     // 1. KAYIT OLMA (Stok Düşürmeli ve Mail Göndermeli)
@@ -89,6 +98,21 @@ public class RegistrationService {
             System.out.println("Bilet maili kuyruğa atıldı: " + userEmail);
         } catch (Exception e) {
             System.err.println("RabbitMQ hatası: " + e.getMessage());
+        }
+
+        // 👇👇 YENİ EKLENEN KISIM: Gamification'a Haber Ver 👇👇
+        try {
+            GamificationEvent gamificationEvent = GamificationEvent.builder()
+                    .userId(userAuthId)
+                    .eventType(EventType.EVENT_JOINED)
+                    .referenceId(String.valueOf(eventId))
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+            rabbitTemplate.convertAndSend(gamificationExchange, gamificationRoutingKey, gamificationEvent);
+            System.out.println("Gamification eventi (EVENT_JOINED) fırlatıldı! User: " + userAuthId);
+        } catch (Exception e) {
+            System.err.println("Gamification mesajı gönderilemedi: " + e.getMessage());
         }
 
         return savedRegistration;
