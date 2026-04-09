@@ -27,4 +27,10 @@ public class UserPoint {
 
     @Builder.Default
     private int postCount = 0;
+
+    @Builder.Default
+    private int likeCount = 0; // Toplam yaptığı beğeni
+
+    @Builder.Default
+    private int commentCount = 0; // Toplam yaptığı yorum
 }

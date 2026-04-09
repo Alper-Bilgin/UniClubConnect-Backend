@@ -28,7 +28,6 @@ public class GamificationEngine {
     private final DailyStreakService dailyStreakService;
 
     @Transactional // Puan ekleme ve rozet verme işlemleri tek bir veritabanı işleminde (Transaction) yapılsın
-
     public void processEvent(GamificationEvent event) {
         String userId = event.getUserId();
 
@@ -43,17 +42,20 @@ public class GamificationEngine {
 
         // 1. HER İŞLEM İÇİN STANDART PUAN EKLE (+10 XP)
         UserPoint userPoint = userPointRepository.findById(userId)
-                .orElse(UserPoint.builder().userId(userId).totalXp(0).currentLevel(1).postCount(0).build());
+                .orElse(UserPoint.builder().userId(userId).totalXp(0).currentLevel(1).postCount(0).likeCount(0).commentCount(0).build());
 
         userPoint.setTotalXp(userPoint.getTotalXp() + 10);
         userPoint.setCurrentLevel((userPoint.getTotalXp() / 100) + 1);
 
-        // 👇 YENİ: Eğer post atıldıysa sayacı 1 artır 👇
-        if (event.getEventType() == com.uniclubconnect.services.gamificationservice.dto.EventType.POST_CREATED) {
-            userPoint.setPostCount(userPoint.getPostCount() + 1);
+        // 👇 TEMİZLENMİŞ SAYAÇ ARTIRMA MANTIĞI 👇
+        switch (event.getEventType()) {
+            case POST_CREATED -> userPoint.setPostCount(userPoint.getPostCount() + 1);
+            case POST_LIKED -> userPoint.setLikeCount(userPoint.getLikeCount() + 1);
+            case COMMENT_ADDED -> userPoint.setCommentCount(userPoint.getCommentCount() + 1);
         }
 
-        userPointRepository.save(userPoint); // Kaydet
+        // Değişiklikleri Kaydet
+        userPointRepository.save(userPoint);
 
         // 2. KURAL MOTORUNU ÇALIŞTIR VE ROZETLERİ DAĞIT
         for (BadgeRule rule : rules) {

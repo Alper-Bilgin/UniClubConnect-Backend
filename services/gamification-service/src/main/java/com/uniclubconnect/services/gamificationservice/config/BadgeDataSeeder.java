@@ -46,7 +46,6 @@ public class BadgeDataSeeder implements CommandLineRunner {
         }
 
         // 🔥 STREAK ROZETLERİ
-
         if (!badgeRepository.existsById("STREAK_7")) {
             badgeRepository.save(Badge.builder()
                     .id("STREAK_7")
@@ -99,6 +98,52 @@ public class BadgeDataSeeder implements CommandLineRunner {
                     .description("1 TAM YIL boyunca aralıksız giriş yaptın!")
                     .xpReward(5000)
                     .build());
+        }
+
+        // ❤️ BEĞENİ ROZETLERİ
+        if (!badgeRepository.existsById("LIKE_1")) {
+            badgeRepository.save(Badge.builder().id("LIKE_1").name("İlk Kıvılcım ❤️").description("İlk beğenini attın!").xpReward(50).build());
+        }
+        if (!badgeRepository.existsById("LIKE_5")) {
+            badgeRepository.save(Badge.builder().id("LIKE_5").name("Destekçi 👍").description("5 gönderiyi beğendin.").xpReward(100).build());
+        }
+        if (!badgeRepository.existsById("LIKE_10")) {
+            badgeRepository.save(Badge.builder().id("LIKE_10").name("Cömert 🎁").description("10 beğeni!").xpReward(200).build());
+        }
+        if (!badgeRepository.existsById("LIKE_50")) {
+            badgeRepository.save(Badge.builder().id("LIKE_50").name("Sevgi Dağıtıcı 💖").description("50 gönderiyi beğendin!").xpReward(500).build());
+        }
+        if (!badgeRepository.existsById("LIKE_100")) {
+            badgeRepository.save(Badge.builder().id("LIKE_100").name("Topluluk Kalbi 💘").description("100 beğeni ile topluluğa can veriyorsun!").xpReward(1000).build());
+        }
+        if (!badgeRepository.existsById("LIKE_500")) {
+            badgeRepository.save(Badge.builder().id("LIKE_500").name("Beğeni Makinesi 🤖").description("İnanılmaz! 500 beğeni!").xpReward(2500).build());
+        }
+        if (!badgeRepository.existsById("LIKE_1000")) {
+            badgeRepository.save(Badge.builder().id("LIKE_1000").name("EFSANE DOKUNUŞ 🌟").description("1000 beğeni! Sen bu uygulamanın neşesisin!").xpReward(5000).build());
+        }
+
+        // 💬 YORUM ROZETLERİ
+        if (!badgeRepository.existsById("COMMENT_1")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_1").name("İlk Söz 💬").description("İlk yorumunu yaptın!").xpReward(50).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_5")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_5").name("Konuşkan 🗣️").description("5 yorumla sohbete katıldın.").xpReward(100).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_10")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_10").name("Fikir Sahibi 🧠").description("10 yorum!").xpReward(200).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_50")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_50").name("Tartışmacı 🎙️").description("50 yoruma ulaştın!").xpReward(500).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_100")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_100").name("Hatip 🎓").description("100 yorum! Sesin gür çıkıyor!").xpReward(1000).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_500")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_500").name("Söz Üstadı 📜").description("500 yorumla herkes seni tanıyor!").xpReward(2500).build());
+        }
+        if (!badgeRepository.existsById("COMMENT_1000")) {
+            badgeRepository.save(Badge.builder().id("COMMENT_1000").name("FORUM LİDERİ 🏛️").description("1000 yorum! Burası senin mekanın!").xpReward(5000).build());
         }
 
         System.out.println("✅ Rozetler kontrol edildi ve eksikler eklendi!");
