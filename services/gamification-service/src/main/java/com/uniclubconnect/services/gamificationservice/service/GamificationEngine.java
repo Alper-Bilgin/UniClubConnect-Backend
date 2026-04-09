@@ -25,9 +25,21 @@ public class GamificationEngine {
     private final UserBadgeRepository userBadgeRepository;
     private final BadgeRepository badgeRepository;
 
+    private final DailyStreakService dailyStreakService;
+
     @Transactional // Puan ekleme ve rozet verme işlemleri tek bir veritabanı işleminde (Transaction) yapılsın
+
     public void processEvent(GamificationEvent event) {
         String userId = event.getUserId();
+
+        // YENİ EKLENEN HİLE KORUMASI
+        if (event.getEventType() == com.uniclubconnect.services.gamificationservice.dto.EventType.USER_LOGIN) {
+            boolean isValidLogin = dailyStreakService.processLogin(userId);
+            if (!isValidLogin) {
+                log.info("Kullanıcı {} bugün zaten giriş yapmış. İşlem (XP/Rozet) iptal edildi.", userId);
+                return;
+            }
+        }
 
         // 1. HER İŞLEM İÇİN STANDART PUAN EKLE (+10 XP)
         UserPoint userPoint = userPointRepository.findById(userId)
