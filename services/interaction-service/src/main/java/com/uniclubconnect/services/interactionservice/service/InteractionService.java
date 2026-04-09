@@ -4,6 +4,8 @@ import com.uniclubconnect.services.interactionservice.client.EventServiceClient;
 import com.uniclubconnect.services.interactionservice.client.PostServiceClient;
 import com.uniclubconnect.services.interactionservice.client.ProfileServiceClient;
 import com.uniclubconnect.services.interactionservice.dto.CommentResponse;
+import com.uniclubconnect.services.interactionservice.dto.EventType;
+import com.uniclubconnect.services.interactionservice.dto.GamificationEvent;
 import com.uniclubconnect.services.interactionservice.dto.UserProfileDto;
 import com.uniclubconnect.services.interactionservice.entity.Comment;
 import com.uniclubconnect.services.interactionservice.entity.ETargetType;
@@ -11,13 +13,15 @@ import com.uniclubconnect.services.interactionservice.entity.Like;
 import com.uniclubconnect.services.interactionservice.repository.CommentRepository;
 import com.uniclubconnect.services.interactionservice.repository.LikeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 public class InteractionService {
@@ -26,9 +30,18 @@ public class InteractionService {
     private final LikeRepository likeRepository;
     private final PostServiceClient postServiceClient;
     private final EventServiceClient eventServiceClient;
-    private final ProfileServiceClient profileServiceClient; // EKLENDİ
+    private final ProfileServiceClient profileServiceClient;
+
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${gamification.rabbitmq.exchange:gamification.exchange}")
+    private String gamificationExchange;
+
+    @Value("${gamification.rabbitmq.routing-key:gamification.event.interaction}")
+    private String gamificationRoutingKey;
 
     // 1. YORUM EKLE (AYNI)
+    // 1. YORUM EKLE (GÜNCELLENDİ)
     public Comment addComment(String userId, String content, String targetId, ETargetType targetType) {
         validateTargetExists(targetId, targetType);
 
@@ -39,7 +52,14 @@ public class InteractionService {
                 .targetType(targetType)
                 .build();
 
-        return commentRepository.save(comment);
+        // 1. Önce veritabanına kaydet ki ID'si oluşsun
+        Comment savedComment = commentRepository.save(comment);
+
+        // 2. YENİ: Yorum yapılınca Gamification'a haber ver (Artık savedComment tanımlı!)
+        sendGamificationEvent(userId, EventType.COMMENT_ADDED, String.valueOf(savedComment.getId()));
+
+        // 3. Kaydedilen yorumu geri dön
+        return savedComment;
     }
 
     // 2. BEĞENİ TOGGLE (AYNI)
@@ -61,6 +81,9 @@ public class InteractionService {
                     .build();
 
             likeRepository.save(like);
+
+            // YENİ: Yeni beğeni atılınca Gamification'a haber ver
+            sendGamificationEvent(userId, EventType.POST_LIKED, targetId);
             return "Beğenildi.";
         }
     }
@@ -139,5 +162,20 @@ public class InteractionService {
                 .authorProfileImage(authorImage)
                 .createdAt(comment.getCreatedAt())
                 .build();
+    }
+
+    private void sendGamificationEvent(String userId, EventType eventType, String referenceId) {
+        try {
+            GamificationEvent event = GamificationEvent.builder()
+                    .userId(userId)
+                    .eventType(eventType)
+                    .referenceId(referenceId)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+            rabbitTemplate.convertAndSend(gamificationExchange, gamificationRoutingKey, event);
+        } catch (Exception e) {
+            System.err.println("Gamification eventi gönderilemedi: " + e.getMessage());
+        }
     }
 }

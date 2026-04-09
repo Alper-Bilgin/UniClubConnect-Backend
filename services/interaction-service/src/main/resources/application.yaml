@@ -6,3 +6,7 @@ spring:
   cloud:
     config:
       uri: http://localhost:8888
+gamification:
+  rabbitmq:
+    exchange: gamification.exchange
+    routing-key: gamification.event.interaction
