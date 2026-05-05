@@ -9,6 +9,10 @@ spring:
     config:
       # Config Server'ın adresi
       uri: http://localhost:8888
+  datasource:
+    hikari:
+      maximum-pool-size: 4
+      minimum-idle: 1
 gamification:
   rabbitmq:
     exchange: gamification.exchange

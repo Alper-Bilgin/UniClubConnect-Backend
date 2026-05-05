@@ -3,6 +3,10 @@ spring:
     name: feed-service
   config:
     import: "configserver:"
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
 cloud:
   config:
     uri: http://localhost:8888
