@@ -29,6 +29,7 @@
         <module>services/follow-service</module>
         <module>services/feed-service</module>
         <module>services/gamification-service</module>
+        <module>services/chat-service</module>
     </modules>
 
     <properties>

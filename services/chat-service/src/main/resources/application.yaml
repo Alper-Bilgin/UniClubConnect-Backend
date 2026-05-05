@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: chat-service
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      uri: http://localhost:8888
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
