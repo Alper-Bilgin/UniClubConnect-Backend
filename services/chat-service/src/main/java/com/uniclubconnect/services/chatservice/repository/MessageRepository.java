@@ -16,4 +16,12 @@ public interface MessageRepository extends JpaRepository<Message, String> {
 
     // MÜKERRER MESAJ KONTROLÜ İÇİN
     Optional<Message> findByClientMessageId(String clientMessageId);
+
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT m FROM Message m " +
+                    "WHERE (m.senderId = :userId OR m.recipientId = :userId) " +
+                    "AND m.createdAt = (SELECT MAX(m2.createdAt) FROM Message m2 WHERE m2.chatRoomId = m.chatRoomId) " +
+                    "ORDER BY m.createdAt DESC"
+    )
+    java.util.List<Message> findLatestMessagesForUserChats(@org.springframework.data.repository.query.Param("userId") String userId);
 }

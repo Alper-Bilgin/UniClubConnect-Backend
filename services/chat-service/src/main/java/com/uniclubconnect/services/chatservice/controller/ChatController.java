@@ -1,5 +1,6 @@
 package com.uniclubconnect.services.chatservice.controller;
 
+import com.uniclubconnect.services.chatservice.dto.ActiveChatResponse;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageRequest;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageResponse;
 import com.uniclubconnect.services.chatservice.model.MessageStatus;
@@ -120,5 +121,14 @@ public class ChatController {
         // Bu mesaj client'ın "/user/queue/errors" kanalına gidecek.
         // Frontend bu kanalı dinleyip kırmızı bir Toast/Snackbar gösterecek.
         return ex.getMessage();
+    }
+
+    // 👇 YENİ REST API: Aktif Sohbetler Listesi 👇
+    @GetMapping("/api/chat/active")
+    public ResponseEntity<java.util.List<ActiveChatResponse>> getActiveChats(Principal principal) {
+        if (principal == null) throw new RuntimeException("Unauthorized");
+
+        UserPrincipal user = (UserPrincipal) ((Authentication) principal).getPrincipal();
+        return ResponseEntity.ok(chatService.getActiveChats(user.getAuthId()));
     }
 }

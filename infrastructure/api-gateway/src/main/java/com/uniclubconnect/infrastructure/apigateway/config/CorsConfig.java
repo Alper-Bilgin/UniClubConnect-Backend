@@ -17,7 +17,7 @@ public class CorsConfig {
 
         // 1. İzin verilen kaynaklar (Frontend adresiniz)
         // React genelde 3000 veya 5173 portunda çalışır
-        corsConfig.setAllowedOrigins(Arrays.asList("*"));
+        corsConfig.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
 
         // 2. İzin verilen metotlar
         corsConfig.setMaxAge(3600L); // 1 saat önbellekte tut (Sürekli sormasın)

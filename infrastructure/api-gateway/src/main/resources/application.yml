@@ -4,10 +4,16 @@ spring:
   config:
     import: "configserver:"
   cloud:
+    gateway:
+      default-filters:
+        # Diğer filtrelerin (Token relay vs.) burada olabilir...
+
+        # 👇 Çiftleyen CORS başlıklarını temizleyen sihirli filtre 👇
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
     config:
       # Config Server'?n adresi
       uri: http://localhost:8888
 
-# Not: Di?er t�m ayarlar (port: 8080, routing kurallar? vb.)
-# Git deponuzdaki 'api-gateway.yml' dosyas?ndan �ekilmeye devam edecek.
-# Bu dosya, sadece o depoyu nerede bulaca??n? s�yler.
+# Not: Di?er t�m ayarlar (port: 8080, routing kurallar? vb.)
+# Git deponuzdaki 'api-gateway.yml' dosyas?ndan �ekilmeye devam edecek.
+# Bu dosya, sadece o depoyu nerede bulaca??n? s�yler.

@@ -1,6 +1,7 @@
 package com.uniclubconnect.services.chatservice.service;
 
 import com.uniclubconnect.services.chatservice.config.RabbitMQConfig;
+import com.uniclubconnect.services.chatservice.dto.ActiveChatResponse;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageRequest;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageResponse;
 import com.uniclubconnect.services.chatservice.dto.UnreadMessageEvent;
@@ -187,6 +188,31 @@ public class ChatService {
     }
 
     // ==========================================
+    // GET ACTIVE CHATS (Sol Menü Listesi)
+    // ==========================================
+    public java.util.List<ActiveChatResponse> getActiveChats(String userId) {
+
+        // 1. Kullanıcının dahil olduğu odaların son mesajlarını getir
+        java.util.List<Message> latestMessages = messageRepository.findLatestMessagesForUserChats(userId);
+
+        // 2. DTO'ya dönüştür
+        return latestMessages.stream().map(msg -> {
+            // Eğer son mesajı ben attıysam karşı taraf recipient'tir, bana geldiyse sender'dır.
+            String otherUserId = msg.getSenderId().equals(userId) ? msg.getRecipientId() : msg.getSenderId();
+
+            return ActiveChatResponse.builder()
+                    .roomId(msg.getChatRoomId())
+                    .otherUserId(otherUserId)
+                    .chatName(null) // İleride Group eklendiğinde dolduracağız
+                    .lastMessage(msg.getContent())
+                    .lastMessageTime(msg.getCreatedAt())
+                    .lastMessageStatus(msg.getStatus().name())
+                    .chatType(ChatType.DIRECT.name()) // Şimdilik hep DIRECT
+                    .build();
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
+    // ==========================================
     // HELPER: MAP TO DTO (Eksik Olan Metot)
     // ==========================================
     private ChatMessageResponse mapToResponse(Message msg) {
@@ -200,4 +226,5 @@ public class ChatService {
                 .timestamp(msg.getCreatedAt())
                 .build();
     }
+
 }
