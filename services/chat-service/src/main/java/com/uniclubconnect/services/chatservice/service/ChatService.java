@@ -1,7 +1,9 @@
 package com.uniclubconnect.services.chatservice.service;
 
+import com.uniclubconnect.services.chatservice.config.RabbitMQConfig;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageRequest;
 import com.uniclubconnect.services.chatservice.dto.ChatMessageResponse;
+import com.uniclubconnect.services.chatservice.dto.UnreadMessageEvent;
 import com.uniclubconnect.services.chatservice.model.ChatRoom;
 import com.uniclubconnect.services.chatservice.model.ChatType;
 import com.uniclubconnect.services.chatservice.model.Message;
@@ -129,12 +131,33 @@ public class ChatService {
                     .orElseThrow(() -> e);
         }
 
-        // ==========================================
+        /// ==========================================
         // 7. ASYNC EVENT (RabbitMQ)
         // ==========================================
         if (!isRecipientOnline) {
             log.info("Offline kullanıcı, notification event gönderilecek: {}", request.getRecipientId());
-            // TODO: rabbitTemplate.convertAndSend(...) eklemesi yapılacak
+
+            // Mailde çok uzun görünmesin diye mesajın ilk 50 karakterini "Önizleme" yapıyoruz
+            String preview = request.getContent().length() > 50
+                    ? request.getContent().substring(0, 50) + "..."
+                    : request.getContent();
+
+            // Gönderilecek Event objesini dolduruyoruz
+            UnreadMessageEvent event = new UnreadMessageEvent(
+                    savedMessage.getId(),
+                    senderId,
+                    request.getRecipientId(),
+                    preview,
+                    savedMessage.getCreatedAt()
+            );
+
+            // RabbitMQ'ya JSON formatında fırlatıyoruz!
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.CHAT_EXCHANGE,
+                    RabbitMQConfig.UNREAD_MESSAGE_ROUTING_KEY,
+                    event
+            );
+            log.info("Event RabbitMQ'ya başarıyla fırlatıldı!");
         }
 
         return mapToResponse(savedMessage);
