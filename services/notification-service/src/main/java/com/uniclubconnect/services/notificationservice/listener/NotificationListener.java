@@ -3,6 +3,7 @@ package com.uniclubconnect.services.notificationservice.listener;
 import com.uniclubconnect.services.notificationservice.client.ProfileServiceClient;
 import com.uniclubconnect.services.notificationservice.dto.FollowEvent;
 import com.uniclubconnect.services.notificationservice.dto.TicketCreatedEvent;
+import com.uniclubconnect.services.notificationservice.dto.UnreadMessageEvent;
 import com.uniclubconnect.services.notificationservice.dto.UserCreatedEvent;
 import com.uniclubconnect.services.notificationservice.dto.UserProfileResponse;
 import com.uniclubconnect.services.notificationservice.service.EmailService;
@@ -109,6 +110,33 @@ public class NotificationListener {
             }
         } catch (Exception e) {
             System.err.println("Follow event işlenirken hata oluştu: " + e.getMessage());
+        }
+    }
+
+    // 4. Okunmamış Sohbet Mesajı Dinleyicisi
+    @RabbitListener(queues = "${notification.rabbitmq.queue.chat-notification}")
+    public void handleUnreadMessage(UnreadMessageEvent event) {
+        try {
+            // Alıcı ve Gönderici bilgilerini Profil Servisinden çekiyoruz
+            UserProfileResponse targetUser = profileServiceClient.getUserProfile(event.getRecipientId());
+            UserProfileResponse senderUser = profileServiceClient.getUserProfile(event.getSenderId());
+
+            if (targetUser.getEmail() != null) {
+                Map<String, Object> variables = new HashMap<>();
+                variables.put("targetName", targetUser.getFirstName());
+                variables.put("senderName", senderUser.getFirstName() + " " + senderUser.getLastName());
+                variables.put("messagePreview", event.getContentPreview());
+
+                emailService.sendHtmlEmail(
+                        targetUser.getEmail(),
+                        senderUser.getFirstName() + " sana bir mesaj gönderdi",
+                        "chat-notification-template",
+                        variables,
+                        "UNREAD_CHAT_MESSAGE"
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Chat notification event işlenirken hata oluştu: " + e.getMessage());
         }
     }
 }

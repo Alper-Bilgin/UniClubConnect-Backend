@@ -89,4 +89,25 @@ public class RabbitMQConfig {
         objectMapper.registerModule(new JavaTimeModule()); // Tarih hatasını çözen altın vuruş!
         return new Jackson2JsonMessageConverter(objectMapper);
     }
+
+    // 4. Chat Bildirimi Ayarları
+    @Value("${notification.rabbitmq.queue.chat-notification}")
+    private String chatQueueName;
+
+    @Value("${notification.rabbitmq.exchange.chat}")
+    private String chatExchangeName;
+
+    @Value("${notification.rabbitmq.routing-key.unread-message}")
+    private String chatRoutingKey;
+
+    @Bean
+    public Queue chatQueue() { return new Queue(chatQueueName); }
+
+    @Bean
+    public TopicExchange chatExchange() { return new TopicExchange(chatExchangeName); }
+
+    @Bean
+    public Binding chatBinding() {
+        return BindingBuilder.bind(chatQueue()).to(chatExchange()).with(chatRoutingKey);
+    }
 }
