@@ -14,4 +14,10 @@ public class ChatMessageResponse {
     private String status;
     private LocalDateTime timestamp;
     private String clientMessageId;
+
+    // ✅ YENİ
+    @Builder.Default
+    private boolean isEdited = false;
+
+    private LocalDateTime editedAt;
 }

@@ -34,4 +34,27 @@ public class Message {
 
     @Builder.Default
     private boolean isDeleted = false;
+
+    // ✅ YENİ: UNREAD MESSAGE TRACKING
+    // ==========================================
+    @Builder.Default
+    @Column(name = "is_read")
+    private boolean isRead = false;
+
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+
+    // ✅ YENİ: DELETE MESSAGE (Soft Delete)
+    // ==========================================
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    // ✅ YENİ: EDIT MESSAGE
+    // ==========================================
+    @Builder.Default
+    @Column(name = "is_edited")
+    private boolean isEdited = false;
+
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
 }
