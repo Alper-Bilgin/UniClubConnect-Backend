@@ -75,6 +75,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/auth/verify").permitAll()
                         .requestMatchers("/api/auth/resend-code").permitAll()
+                        // Şifre işlemleri
+                        .requestMatchers("/api/auth/forgot-password").permitAll()
+                        .requestMatchers("/api/auth/reset-password").permitAll()
                         // Admin ve Kullanıcı istek yolları kimlik doğrulaması gerektirir
                         .requestMatchers("/api/admin/**").authenticated()
                         .requestMatchers("/api/requests/**").authenticated()

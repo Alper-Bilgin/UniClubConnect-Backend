@@ -2,7 +2,9 @@ package com.uniclubconnect.services.authservice.service;
 
 import com.uniclubconnect.services.authservice.dto.AuthResponse;
 import com.uniclubconnect.services.authservice.dto.LoginRequest;
+import com.uniclubconnect.services.authservice.dto.PasswordResetEvent;
 import com.uniclubconnect.services.authservice.dto.RegisterRequest;
+import com.uniclubconnect.services.authservice.dto.ResetPasswordRequest;
 import com.uniclubconnect.services.authservice.dto.RoleUpgradeRequestResponse;
 import com.uniclubconnect.services.authservice.entity.ERole;
 import com.uniclubconnect.services.authservice.entity.ERoleRequestStatus;
@@ -373,5 +375,68 @@ public class AuthService {
         public RequestNotFoundException(String message) {
             super(message);
         }
+    }
+
+    // ----------------------------------------------------------------
+    //  5. ŞİFRE SIFIRLAMA
+    // ----------------------------------------------------------------
+
+    @Transactional
+    public String forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı."));
+
+        // 6 Haneli şifre sıfırlama kodu üret
+        String resetCode = String.valueOf(new Random().nextInt(900000) + 100000);
+
+        // Redis'e kaydet (15 Dakika geçerli)
+        redisTemplate.opsForValue().set(
+                "reset:" + user.getEmail(),
+                resetCode,
+                15, TimeUnit.MINUTES
+        );
+
+        // RabbitMQ'ya Event fırlat (Notification Service bunu dinleyip mail atacak)
+        PasswordResetEvent event = new PasswordResetEvent(
+                user.getEmail(),
+                resetCode,
+                user.getFirstName()
+        );
+
+        try {
+            rabbitTemplate.convertAndSend(exchangeName, "user.reset.key", event); // routing-key'i "user.reset.key" yapabilirsin
+            logger.info("Şifre sıfırlama maili tetiklendi: {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("RabbitMQ hatası (Şifre Sıfırlama): {}", e.getMessage());
+        }
+
+        return "Şifre sıfırlama kodu e-posta adresinize gönderildi (15 dakika geçerlidir).";
+    }
+
+    @Transactional
+    public String resetPassword(ResetPasswordRequest request) {
+        String redisKey = "reset:" + request.getEmail();
+        String storedCode = redisTemplate.opsForValue().get(redisKey);
+
+        if (storedCode == null) {
+            throw new RuntimeException("Şifre sıfırlama kodunun süresi dolmuş veya geçersiz.");
+        }
+
+        if (!storedCode.equals(request.getCode())) {
+            throw new RuntimeException("Hatalı sıfırlama kodu!");
+        }
+
+        // Kodu doğruladık, şifreyi değiştirelim
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı."));
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Kullanılmış kodu Redis'ten sil
+        redisTemplate.delete(redisKey);
+
+        logger.info("Kullanıcı şifresini başarıyla sıfırladı: {}", request.getEmail());
+        return "Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.";
     }
 }

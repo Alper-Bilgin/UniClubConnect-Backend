@@ -110,4 +110,21 @@ public class RabbitMQConfig {
     public Binding chatBinding() {
         return BindingBuilder.bind(chatQueue()).to(chatExchange()).with(chatRoutingKey);
     }
+
+    // 5. Şifre Sıfırlama Maili Ayarları
+    @Value("${notification.rabbitmq.queue.password-reset}")
+    private String passwordResetQueueName;
+
+    @Value("${notification.rabbitmq.routing-key.password-reset}")
+    private String passwordResetRoutingKey;
+
+    @Bean
+    public Queue passwordResetQueue() {
+        return new Queue(passwordResetQueueName);
+    }
+
+    @Bean
+    public Binding passwordResetBinding() {
+        return BindingBuilder.bind(passwordResetQueue()).to(userExchange()).with(passwordResetRoutingKey);
+    }
 }

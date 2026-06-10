@@ -1,9 +1,11 @@
 package com.uniclubconnect.services.authservice.controller;
 
 import com.uniclubconnect.services.authservice.dto.AuthResponse;
+import com.uniclubconnect.services.authservice.dto.ForgotPasswordRequest;
 import com.uniclubconnect.services.authservice.dto.LoginRequest;
 import com.uniclubconnect.services.authservice.dto.MessageResponse;
 import com.uniclubconnect.services.authservice.dto.RegisterRequest;
+import com.uniclubconnect.services.authservice.dto.ResetPasswordRequest;
 import com.uniclubconnect.services.authservice.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +65,26 @@ public class AuthController {
     public ResponseEntity<?> resendCode(@RequestParam String email) {
         try {
             String result = authService.resendVerificationCode(email);
+            return ResponseEntity.ok(new MessageResponse(result));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        try {
+            String result = authService.forgotPassword(request.getEmail());
+            return ResponseEntity.ok(new MessageResponse(result));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            String result = authService.resetPassword(request);
             return ResponseEntity.ok(new MessageResponse(result));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));

@@ -2,6 +2,7 @@ package com.uniclubconnect.services.notificationservice.listener;
 
 import com.uniclubconnect.services.notificationservice.client.ProfileServiceClient;
 import com.uniclubconnect.services.notificationservice.dto.FollowEvent;
+import com.uniclubconnect.services.notificationservice.dto.PasswordResetEvent;
 import com.uniclubconnect.services.notificationservice.dto.TicketCreatedEvent;
 import com.uniclubconnect.services.notificationservice.dto.UnreadMessageEvent;
 import com.uniclubconnect.services.notificationservice.dto.UserCreatedEvent;
@@ -137,6 +138,26 @@ public class NotificationListener {
             }
         } catch (Exception e) {
             System.err.println("Chat notification event işlenirken hata oluştu: " + e.getMessage());
+        }
+    }
+
+    // 5. Şifre Sıfırlama Maili Dinleyicisi
+    @RabbitListener(queues = "${notification.rabbitmq.queue.password-reset}")
+    public void handlePasswordReset(PasswordResetEvent event) {
+        try {
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("name", event.getFirstName());
+            variables.put("code", event.getResetCode());
+
+            emailService.sendHtmlEmail(
+                    event.getEmail(),
+                    "Şifre Sıfırlama İsteği - UniClubConnect",
+                    "password-reset-template", // Bu HTML dosyasını resources/templates altına ekleyeceğiz
+                    variables,
+                    "PASSWORD_RESET"
+            );
+        } catch (Exception e) {
+            System.err.println("Password reset event işlenirken hata oluştu: " + e.getMessage());
         }
     }
 }
