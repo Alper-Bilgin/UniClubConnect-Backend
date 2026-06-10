@@ -82,4 +82,15 @@ public class ProfileController {
         }
     }
 
+    // 🔥 YENİ: Tüm kullanıcıları listele (Frontend "Keşfet" veya "Admin" ekranları için) 🔥
+    @GetMapping("/all")
+    public ResponseEntity<java.util.List<UserProfileResponse>> getAllUserProfiles() {
+        try {
+            java.util.List<UserProfileResponse> profiles = userProfileService.getAllProfiles();
+            return ResponseEntity.ok(profiles);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Profiller listelenirken hata oluştu: " + e.getMessage());
+        }
+    }
+
 }

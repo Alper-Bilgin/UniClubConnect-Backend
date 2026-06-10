@@ -112,4 +112,14 @@ public class UserProfileService {
             super(message);
         }
     }
+
+    // 🔥 YENİ: Sistemdeki tüm kullanıcı profillerini getirir 🔥
+    public java.util.List<UserProfileResponse> getAllProfiles() {
+        java.util.List<UserProfile> allProfiles = userProfileRepository.findAll();
+
+        // Veritabanından gelen tüm entity'leri, mapToResponseDTO yardımıyla DTO'ya çevir (MinIO URL'leri dahil)
+        return allProfiles.stream()
+                .map(this::mapToResponseDTO)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

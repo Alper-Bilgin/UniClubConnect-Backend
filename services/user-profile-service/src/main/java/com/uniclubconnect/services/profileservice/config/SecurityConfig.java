@@ -29,6 +29,8 @@ public class SecurityConfig {
 
                         // 1. Dışarıdan veya diğer servislerden gelecek profil sorgulamalarına izin ver (Public)
                         .requestMatchers("/api/profiles/user/**").permitAll()
+                        // 🔥 YENİ: Tüm kullanıcıları listeleme uç noktasını HERKESE AÇIK yap 🔥
+                        .requestMatchers("/api/profiles/all").permitAll()
 
                         // 2. /api/profiles/me gibi geri kalan TÜM yollar kimlik doğrulaması gerektirir
                         .requestMatchers("/api/profiles/**").authenticated()
