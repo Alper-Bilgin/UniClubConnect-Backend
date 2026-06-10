@@ -15,23 +15,8 @@ Servis, mikroservisler arası senkron iletişim ve hızlı veri doğrulama mekan
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`event_schema`** şemasını kullanmaktadır.
 
-### Tablo Yapısı
-```mermaid
-erDiagram
-    events {
-        bigint id PK
-        varchar title
-        text description
-        varchar location
-        varchar event_link
-        timestamp event_date_time
-        varchar image_url "MinIO resim adı"
-        int total_quota
-        bigint club_id
-        varchar organizer_auth_id "ROLE_CLUB_OWNER Id"
-        timestamp created_at
-    }
-```
+### Tablolar ve Alanları
+* **events**: `id` (PK), `title`, `description`, `location`, `event_link`, `event_date_time`, `image_url` (MinIO resim adı), `total_quota`, `club_id`, `organizer_auth_id` (ROLE_CLUB_OWNER Id), `created_at`
 
 - **Not**: Tabloda kulüp adı (`clubName`) saklanmaz, bunun yerine ilişkisel bütünlük amacıyla `club_id` tutulur. Get isteklerinde veriler birleştirilerek döner.
 

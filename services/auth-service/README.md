@@ -16,36 +16,11 @@ Servis, geleneksel **Katmanlı Mimari (Layered Architecture)** üzerine inşa ed
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`auth_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    users {
-        varchar id PK "UUID"
-        varchar email UK
-        varchar password "BCrypt Hash"
-        varchar first_name
-        varchar last_name
-        boolean is_enabled
-    }
-    roles {
-        int id PK
-        varchar name "ROLE_USER, ROLE_CLUB_OWNER, ROLE_ADMIN"
-    }
-    user_roles {
-        varchar user_id FK
-        int role_id FK
-    }
-    role_upgrade_requests {
-        bigint id PK
-        varchar user_id FK
-        varchar status "PENDING, APPROVED, REJECTED"
-        timestamp created_at
-    }
-
-    users ||--o{ user_roles : "has"
-    roles ||--o{ user_roles : "assigned to"
-    users ||--o{ role_upgrade_requests : "requests"
-```
+### Tablolar ve Alanları
+* **users**: `id` (PK, UUID), `email` (UK), `password` (BCrypt Hash), `firstName`, `lastName`, `is_enabled`
+* **roles**: `id` (PK), `name` (`ROLE_USER`, `ROLE_CLUB_OWNER`, `ROLE_ADMIN`)
+* **user_roles**: `user_id` (FK), `role_id` (FK) - Çoktan çoğa ilişki tablosu
+* **role_upgrade_requests**: `id` (PK), `user_id` (FK), `status` (`PENDING`, `APPROVED`, `REJECTED`), `created_at`
 
 ---
 

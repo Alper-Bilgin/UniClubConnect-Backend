@@ -20,23 +20,8 @@ Servis, yüksek eşzamanlı (high concurrency) bilet satış taleplerini güvenl
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`registration_schema`** şemasını kullanmaktadır.
 
-### Tablo Yapısı
-```mermaid
-erDiagram
-    registrations {
-        bigint id PK
-        bigint event_id
-        varchar event_title
-        timestamp event_date
-        varchar event_location
-        varchar user_auth_id "Participant Auth ID"
-        varchar user_email
-        varchar user_name
-        varchar ticket_code "UUID"
-        varchar status "CONFIRMED, CANCELLED"
-        timestamp registered_at
-    }
-```
+### Tablolar ve Alanları
+* **registrations**: `id` (PK), `event_id`, `event_title`, `event_date`, `event_location`, `user_auth_id` (Participant Auth ID), `user_email`, `user_name`, `ticket_code` (UUID), `status` (`CONFIRMED`, `CANCELLED`), `registered_at`
 
 ---
 

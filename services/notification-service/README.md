@@ -16,18 +16,8 @@ Servis, mikroservislerin gevşek bağlı (decoupled) ve arka planda çalışabil
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`notification_schema`** şemasını kullanmaktadır.
 
-### Tablo Yapısı
-```mermaid
-erDiagram
-    sent_emails {
-        bigint id PK
-        varchar recipient_email
-        varchar subject
-        varchar template_name
-        timestamp sent_at
-        varchar email_type "WELCOME, TICKET, FOLLOW, CHAT, PASSWORD_RESET"
-    }
-```
+### Tablolar ve Alanları
+* **sent_emails**: `id` (PK), `recipient_email`, `subject`, `template_name`, `sent_at`, `email_type` (`WELCOME`, `TICKET`, `FOLLOW`, `CHAT`, `PASSWORD_RESET`)
 
 ---
 

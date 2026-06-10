@@ -15,25 +15,9 @@ Servis, dinamik hedef yapısı ve asenkron ödüllendirme tetikleri barındıran
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`interaction_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    likes {
-        bigint id PK
-        varchar user_id "Liker Auth ID"
-        varchar target_id "Post or Event ID"
-        varchar target_type "POST, EVENT"
-        timestamp liked_at
-    }
-    comments {
-        bigint id PK
-        varchar user_id "Author Auth ID"
-        text content
-        varchar target_id "Post or Event ID"
-        varchar target_type "POST, EVENT"
-        timestamp created_at
-    }
-```
+### Tablolar ve Alanları
+* **likes**: `id` (PK), `user_id` (Liker Auth ID), `target_id` (Post or Event ID), `target_type` (`POST`, `EVENT`), `liked_at`
+* **comments**: `id` (PK), `user_id` (Author Auth ID), `content`, `target_id` (Post or Event ID), `target_type` (`POST`, `EVENT`), `created_at`
 
 ---
 

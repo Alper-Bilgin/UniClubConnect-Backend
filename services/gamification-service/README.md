@@ -15,40 +15,11 @@ Servis, esnek ve genişletilebilir ödüllendirme mekanizmaları sunmak amacıyl
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`gamification_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    user_points {
-        bigint id PK
-        varchar user_id UK "Kullanıcı Auth ID"
-        int total_points "Toplam XP"
-        int level "Kullanıcı Seviyesi"
-        timestamp updated_at
-    }
-    badges {
-        bigint id PK
-        varchar name UK "Örn: STREAK_7, LIKE_100"
-        varchar description
-        varchar icon_url
-        int xp_reward "Kazanılan Rozet XP Ödülü"
-    }
-    user_badges {
-        bigint id PK
-        varchar user_id FK
-        bigint badge_id FK
-        timestamp earned_at
-    }
-    daily_streaks {
-        bigint id PK
-        varchar user_id UK
-        int current_streak "Mevcut Giriş Serisi"
-        int longest_streak "Tüm Zamanlar En Uzun Seri"
-        timestamp last_login_date
-    }
-
-    user_points ||--o{ user_badges : "earns"
-    badges ||--o{ user_badges : "is assigned to"
-```
+### Tablolar ve Alanları
+* **user_points**: `id` (PK), `user_id` (UK, Kullanıcı Auth ID), `total_points` (Toplam XP), `level` (Kullanıcı Seviyesi), `updated_at`
+* **badges**: `id` (PK), `name` (UK, Örn: STREAK_7, LIKE_100), `description`, `icon_url`, `xp_reward` (Kazanılan Rozet XP Ödülü)
+* **user_badges**: `id` (PK), `user_id` (FK), `badge_id` (FK), `earned_at`
+* **daily_streaks**: `id` (PK), `user_id` (UK), `current_streak` (Mevcut Giriş Serisi), `longest_streak` (Tüm Zamanlar En Uzun Seri), `last_login_date`
 
 ---
 

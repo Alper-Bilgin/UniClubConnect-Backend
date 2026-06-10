@@ -21,18 +21,8 @@ Servis, medya saklama yetenekleri ve asenkron olay yayını içeren **Katmanlı 
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`post_schema`** şemasını kullanmaktadır.
 
-### Tablo Yapısı
-```mermaid
-erDiagram
-    posts {
-        bigint id PK
-        text content
-        varchar image_url "MinIO dosya adı"
-        varchar author_id "User Auth ID"
-        timestamp created_at
-        timestamp updated_at
-    }
-```
+### Tablolar ve Alanları
+* **posts**: `id` (PK), `content`, `image_url` (MinIO dosya adı), `author_id` (User Auth ID), `created_at`, `updated_at`
 
 ---
 

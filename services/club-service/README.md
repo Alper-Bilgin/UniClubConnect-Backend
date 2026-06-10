@@ -15,36 +15,10 @@ Servis, geleneksel **Katmanlı Mimari (Layered Architecture)** kullanmaktadır.
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`club_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    clubs {
-        bigint id PK
-        varchar name UK
-        text description
-        varchar logo_url
-        varchar owner_auth_id "ROLE_CLUB_OWNER Id"
-        timestamp created_at
-    }
-    club_members {
-        bigint id PK
-        bigint club_id FK
-        varchar user_auth_id "Member Id"
-        varchar user_email
-        timestamp joined_at
-    }
-    membership_requests {
-        bigint id PK
-        bigint club_id FK
-        varchar user_auth_id "Applicant Id"
-        varchar user_email
-        varchar status "PENDING, APPROVED, REJECTED"
-        timestamp created_at
-    }
-
-    clubs ||--o{ club_members : "has"
-    clubs ||--o{ membership_requests : "receives"
-```
+### Tablolar ve Alanları
+* **clubs**: `id` (PK), `name` (UK), `description`, `logo_url`, `owner_auth_id` (ROLE_CLUB_OWNER Id), `created_at`
+* **club_members**: `id` (PK), `club_id` (FK), `user_auth_id` (Member Id), `user_email`, `joined_at`
+* **membership_requests**: `id` (PK), `club_id` (FK), `user_auth_id` (Applicant Id), `user_email`, `status` (`PENDING`, `APPROVED`, `REJECTED`), `created_at`
 
 ---
 

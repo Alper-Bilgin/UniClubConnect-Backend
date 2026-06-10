@@ -15,24 +15,8 @@ Servis, mikroservisler arası asenkron tetikleme ve medya yönetimi barındıran
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`profile_schema`** şemasını kullanmaktadır.
 
-### Tablo Yapısı
-```mermaid
-erDiagram
-    user_profiles {
-        varchar user_id PK "User Auth ID (UUID)"
-        varchar first_name
-        varchar last_name
-        text bio
-        varchar profile_picture_url "MinIO dosya adı"
-        varchar student_id
-        varchar academic_email
-        varchar department
-        varchar phone_number
-        varchar gender
-        boolean is_private
-        timestamp updated_at
-    }
-```
+### Tablolar ve Alanları
+* **user_profiles**: `user_id` (PK, User Auth ID [UUID]), `first_name`, `last_name`, `bio`, `profile_picture_url` (MinIO dosya adı), `student_id`, `academic_email`, `department`, `phone_number`, `gender`, `is_private`, `updated_at`
 
 ---
 

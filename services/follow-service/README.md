@@ -16,22 +16,9 @@ Servis, ilişkisel veritabanı (PostgreSQL) ve hızlı okuma önbelleği (Redis)
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`follow_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    follows {
-        bigint id PK
-        varchar follower_id "User Id who follows"
-        varchar following_id "User Id being followed"
-        varchar status "ACCEPTED, PENDING"
-        timestamp created_at
-    }
-    follow_settings {
-        varchar user_id PK
-        boolean is_private
-        timestamp updated_at
-    }
-```
+### Tablolar ve Alanları
+* **follows**: `id` (PK), `follower_id` (User Id who follows), `following_id` (User Id being followed), `status` (`ACCEPTED`, `PENDING`), `created_at`
+* **follow_settings**: `user_id` (PK), `is_private`, `updated_at`
 
 ---
 

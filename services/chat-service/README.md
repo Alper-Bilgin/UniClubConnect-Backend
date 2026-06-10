@@ -17,41 +17,10 @@ Servis, asenkron ve gerçek zamanlı iletişimi bir arada sunmak için **Olay-Od
 ## 💾 Veritabanı Şeması ve Tablolar
 Bu servis, ortak PostgreSQL veritabanındaki isolated **`chat_schema`** şemasını kullanmaktadır.
 
-### Tablo İlişkileri (ERD Yapısı)
-```mermaid
-erDiagram
-    chat_rooms {
-        varchar id PK "UUID / roomId"
-        varchar user1_id
-        varchar user2_id
-        timestamp created_at
-    }
-    messages {
-        varchar id PK "UUID"
-        varchar room_id FK
-        varchar sender_id
-        varchar recipient_id
-        text content
-        varchar status "SENT, DELIVERED, READ"
-        boolean is_read
-        timestamp sent_at
-        timestamp read_at
-    }
-    conversations {
-        varchar id PK "roomId"
-        varchar participant1_id
-        varchar participant2_id
-        varchar last_message_content
-        timestamp last_message_timestamp
-        int unread_count_p1
-        int unread_count_p2
-        boolean is_archived_p1
-        boolean is_archived_p2
-    }
-
-    chat_rooms ||--o{ messages : "contains"
-    conversations ||--o{ messages : "tracks"
-```
+### Tablolar ve Alanları
+* **chat_rooms**: `id` (PK, UUID / roomId), `user1_id`, `user2_id`, `created_at`
+* **messages**: `id` (PK, UUID), `room_id` (FK), `sender_id`, `recipient_id`, `content`, `status` (`SENT`, `DELIVERED`, `READ`), `is_read`, `sent_at`, `read_at`
+* **conversations**: `id` (PK, roomId), `participant1_id`, `participant2_id`, `last_message_content`, `last_message_timestamp`, `unread_count_p1`, `unread_count_p2`, `is_archived_p1`, `is_archived_p2`
 
 ---
 
