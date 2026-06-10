@@ -1,30 +1,103 @@
 # Gamification Service (Oyunlaştırma Servisi)
 
-`gamification-service`, UniClubConnect platformundaki kullanıcı aktivitelerini (giriş yapma, gönderi oluşturma, beğenme, yorum yapma vb.) ödüllendirerek kullanıcı bağlılığını ve etkileşimi artıran Spring Boot mikroservisidir.
+`gamification-service`, UniClubConnect platformundaki kullanıcı aktivitelerini (giriş yapma, gönderi paylaşma, beğenme, yorum yapma, bilet alma vb.) ödüllendirerek kullanıcı bağlılığını ve etkileşimini artıran Spring Boot mikroservisidir.
 
-## 📌 Genel Bakış ve Görevleri
-- **Puan ve Seviye Takibi (XP & Level)**: Kullanıcıların yaptıkları her etkileşim için standart +10 XP kazanması ve her 100 XP'de bir seviye (Level) atlaması.
-- **Kural Motoru ve Rozetler (Rules Engine & Badges)**: Çeşitli kurallara göre kullanıcılara özel rozetler tanımlanması ve bu rozetleri kazanan kullanıcılara ekstra XP ödülleri verilmesi.
-  - *Kurallar*: `FirstLoginBadgeRule`, `FirstPostBadgeRule`, `FivePostsBadgeRule` vb.
-- **Günlük Giriş Serisi (Daily Streak)**: Kullanıcıların ardışık günlerde sisteme giriş yapma durumlarının izlenmesi, en uzun serinin (longest streak) tutulması.
-  - *Hile Koruması*: Aynı gün içinde birden fazla kez giriş yapıldığında mükerrer puan kazanılması engellenir.
-- **Liderlik Tablosu (Leaderboard)**: En yüksek puana sahip ilk 10 kullanıcının listelendiği genel bir sıralama tablosu sunar.
-- **Olay Odaklı Mimari (Event-Driven)**: RabbitMQ üzerinden asenkron olarak fırlatılan `GamificationEvent` olaylarını dinler ve puanlama motorunu tetikler.
+---
 
-## ⚙️ Teknolojiler ve Bağımlılıklar
-- **Java 17 & Spring Boot**
-- **Spring Data JPA & PostgreSQL** (Kullanıcı puanları, kazanılan rozetler ve günlük serilerin kalıcı tutulması)
-- **RabbitMQ Listener** (Etkileşim servislerinden gönderilen olayları dinlemek için)
-- **Eureka Client & Spring Cloud Config Client**
+## 🏗️ Geliştirme ve Yazılım Mimarisi
+Servis, esnek ve genişletilebilir ödüllendirme mekanizmaları sunmak amacıyla **Rules Engine (Kural Motoru)** tasarım deseni ve asenkron **Olay-Odaklı (Event-Driven)** tüketim üzerine kurulmuştur.
+- **Kural Motoru Tasarım Deseni (Rules Engine)**: Serviste rozetlerin verilmesini yöneten esnek bir kural mimarisi bulunur. `BadgeRule` adında ortak bir arayüz bulunur ve her bir kural (örn: 7 günlük giriş serisi, 50 beğeni yapılması) bu arayüzü uygulayarak kendi iş mantığını işletir. Yeni bir rozet veya kural eklemek, sadece yeni bir rule sınıfı/bean'i tanımlayarak sisteme enjekte etmeyi gerektirir.
+- **Asenkron Olay Tüketimi (RabbitMQ)**: Platform içindeki etkileşimler (giriş, beğeni, yorum, kulübe katılım, bilet alma vs.) doğrudan veritabanına yazılmakla kalmaz; asenkron olarak `gamification.exchange` üzerine `gamification.event.#` kalıbıyla fırlatılır. Oyunlaştırma servisi bu olayları kuyruktan (`gamification.events.queue`) sırayla çeker, puan motorundan (`GamificationEngine`) geçirerek kullanıcının XP'sini, seviyesini ve rozetlerini asenkron olarak günceller.
+- **Günlük Giriş Serisi ve Hile Koruması (Daily Streak)**: Kullanıcının günlük giriş serileri takip edilir. Aynı gün içerisinde birden fazla kez giriş yapıldığında mükerrer puan kazanılması veritabanı düzeyindeki tarihsel kontroller ile engellenir.
+
+---
+
+## 💾 Veritabanı Şeması ve Tablolar
+Bu servis, ortak PostgreSQL veritabanındaki isolated **`gamification_schema`** şemasını kullanmaktadır.
+
+### Tablo İlişkileri (ERD Yapısı)
+```mermaid
+erDiagram
+    user_points {
+        bigint id PK
+        varchar user_id UK "Kullanıcı Auth ID"
+        int total_points "Toplam XP"
+        int level "Kullanıcı Seviyesi"
+        timestamp updated_at
+    }
+    badges {
+        bigint id PK
+        varchar name UK "Örn: STREAK_7, LIKE_100"
+        varchar description
+        varchar icon_url
+        int xp_reward "Kazanılan Rozet XP Ödülü"
+    }
+    user_badges {
+        bigint id PK
+        varchar user_id FK
+        bigint badge_id FK
+        timestamp earned_at
+    }
+    daily_streaks {
+        bigint id PK
+        varchar user_id UK
+        int current_streak "Mevcut Giriş Serisi"
+        int longest_streak "Tüm Zamanlar En Uzun Seri"
+        timestamp last_login_date
+    }
+
+    user_points ||--o{ user_badges : "earns"
+    badges ||--o{ user_badges : "is assigned to"
+```
+
+---
+
+## ✉️ RabbitMQ Olay Akışları (Event-Driven)
+Servis, sistemdeki tüm etkileşimleri tek bir merkezi kuyruk üzerinden asenkron dinler.
+
+### 1. Tüketilen Olaylar (Consumed Events)
+- **Oyunlaştırma Olayları (`GamificationEvent`)**:
+  - **Exchange**: `gamification.exchange`
+  - **Queue**: `gamification.events.queue`
+  - **Routing Key Pattern**: `gamification.event.#`
+  - **Kabul Edilen Olay Türleri**:
+    - `gamification.event.user.login` -> Günlük giriş serisini ve XP artışını tetikler.
+    - `gamification.event.post.created` -> Post paylaşım rozeti kurallarını tetikler.
+    - `gamification.event.like.created` / `like.removed` -> Beğeni rozeti kurallarını tetikler.
+    - `gamification.event.comment.created` -> Yorum rozeti kurallarını tetikler.
+    - `gamification.event.ticket.created` -> Etkinlik katılım rozeti kurallarını tetikler.
+    - `user.joined.club.key` -> Kulübe katılım olayını ödüllendirir.
+
+---
+
+## 🔌 Servis İletişimi (OpenFeign)
+Servis, veri bütünlüğünü tamamlamak amacıyla diğer servislerle senkron FeignClient bağlantısı kurar.
+
+### 1. Tüketilen Dış Servisler (Feign Clients)
+- **`ProfileServiceClient` (`user-profile-service` çağrılır)**:
+  - **Uç Nokta (`GET /api/profiles/user/{authId}`)**: Liderlik tablosu (`leaderboard`) listelenirken, kullanıcıların ham UUID'lerini ad, soyad ve profil resmi bilgilerine dönüştürmek amacıyla kullanılır.
+
+---
+
+## ⚙️ Yapılandırma ve Çalışma Parametreleri
+- **Çalışma Portu**: `9011` (Gateway yönlendirmesi: `/api/gamification/**`)
+- **Veritabanı Şeması**: `gamification_schema`
+- **Merkezi Yapılandırma (Config Repo)**: `gamification-service.yml`
+- **RabbitMQ Abone Yapılandırması**:
+  - `gamification.rabbitmq.exchange`: `gamification.exchange`
+  - `gamification.rabbitmq.queue`: `gamification.events.queue`
+  - `gamification.rabbitmq.routing-key`: `gamification.event.#`
+
+---
 
 ## 🛣️ API Endpoint'leri (Yolları)
 
 ### 🏆 Oyunlaştırma ve Profil Bilgileri
-| Yöntem | Endpoint | Açıklama |
-| :--- | :--- | :--- |
-| `GET` | `/api/gamification/{userId}/points` | Belirtilen kullanıcının toplam XP ve güncel seviye bilgilerini getirir. |
-| `GET` | `/api/gamification/{userId}/badges` | Belirtilen kullanıcının kazandığı tüm rozetlerin listesini döner. |
-| `GET` | `/api/gamification/{userId}/streak` | Kullanıcının ham günlük seri (streak) verilerini getirir. |
-| `GET` | `/api/gamification/{userId}/streak-info` | Kullanıcının güncel serisi, en uzun serisi ve son giriş tarihi bilgilerini formatlı döner. |
-| `GET` | `/api/gamification/{userId}/summary` | Özet Ekranı: Kullanıcının puan, rozet ve streak durumlarını tek bir istekte birleşik döner. |
-| `GET` | `/api/gamification/leaderboard` | Puanlarına göre en yüksek ilk 10 kullanıcının liderlik tablosunu listeler. |
+| Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/gamification/{userId}/points` | Giriş Yapmış Kullanıcı | Kullanıcının toplam XP puanını ve seviyesini getirir. |
+| `GET` | `/api/gamification/{userId}/badges` | Giriş Yapmış Kullanıcı | Kullanıcının kazandığı tüm rozetlerin listesini döner. |
+| `GET` | `/api/gamification/{userId}/streak` | Giriş Yapmış Kullanıcı | Kullanıcının giriş serisi bilgilerini döner. |
+| `GET` | `/api/gamification/{userId}/streak-info` | Giriş Yapmış Kullanıcı | Kullanıcının güncel serisi, en uzun serisi ve son giriş tarihini formatlı döner. |
+| `GET` | `/api/gamification/{userId}/summary` | Giriş Yapmış Kullanıcı | **Özet Ekranı**: Puan, rozet ve streak bilgilerini tek istekte birleştirerek döner. |
+| `GET` | `/api/gamification/leaderboard` | Giriş Yapmış Kullanıcı | En yüksek puana sahip ilk 10 kullanıcının liderlik sıralamasını getirir (FeignClient ile kullanıcı detayları eklenir). |

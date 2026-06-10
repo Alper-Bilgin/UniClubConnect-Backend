@@ -2,33 +2,81 @@
 
 `event-service`, UniClubConnect platformundaki kulüpler tarafından düzenlenen etkinliklerin (seminerler, festivaller, toplantılar vb.) oluşturulması, güncellenmesi, görsellerinin yüklenmesi ve detaylarının listelenmesini yöneten Spring Boot mikroservisidir.
 
-## 📌 Genel Bakış ve Görevleri
-- **Etkinlik Keşfi**: Tüm etkinlikleri listeleme (`GET /api/events`), detay sorgulama (`/{id}`) ve belirli bir kulübe ait etkinlikleri getirme (`/club/{clubId}`).
-- **Etkinlik Oluşturma**: `ROLE_CLUB_OWNER` olan kullanıcıların kendi kulüpleri adına etkinlik tanımlayabilmesi.
-  - *Güvenlik Kontrolü*: Etkinlik oluşturulurken `club-service` aranarak kullanıcının o kulübün sahibi olup olmadığı kontrol edilir.
-- **Etkinlik Görseli Yükleme**: Etkinliğe ait afiş/kapak resminin MinIO nesne depolama sunucusuna yüklenmesi.
-- **Düzenleme & Silme**: Etkinlik bilgilerini güncelleme ve iptal/silme süreçleri (sadece etkinlik sahibi kulüp yöneticisi tarafından yapılabilir).
+---
 
-## ⚙️ Teknolojiler ve Bağımlılıklar
-- **Java 17 & Spring Boot**
-- **Spring Data JPA & PostgreSQL** (Etkinlik bilgilerinin veritabanında saklanması)
-- **MinIO S3 API SDK** (Etkinlik afişlerinin/resimlerinin depolanması)
-- **Feign Client** (`club-service` ile entegrasyon kurarak kulüp sahipliği doğrulamasını gerçekleştirir)
-- **Eureka Client & Spring Cloud Config Client**
+## 🏗️ Geliştirme ve Yazılım Mimarisi
+Servis, mikroservisler arası senkron iletişim ve hızlı veri doğrulama mekanizmaları içeren **Katmanlı Mimari (Layered Architecture)** prensiplerine göre tasarlanmıştır.
+- **Güvenlik Mimarisi**: Oturum açmış kullanıcının kimliği JWT ile doğrulanır. Etkinlik oluştururken kulüp sahipliği, güncellerken/silerken ise etkinlik sahipliği kontrolleri yapılır.
+- **Redis ile Kontenjan Yönetimi (Caching)**: Etkinlik oluşturulduğu veya güncellendiği anda, etkinliğin maksimum bilet kontenjanı (quota) Redis sunucusunda `"event:<eventId>:quota"` anahtarı ile saklanır. Bilet alım işlemleri (`registration-service`), PostgreSQL'e gitmeden önce bu Redis anahtarı üzerinden atomik olarak kontenjanı sorgular ve düşürür.
+- **Medya Yönetimi (Object Storage)**: Etkinlik afişleri ve kapak resimleri S3 uyumlu **MinIO** nesne deposunda saklanır.
+
+---
+
+## 💾 Veritabanı Şeması ve Tablolar
+Bu servis, ortak PostgreSQL veritabanındaki isolated **`event_schema`** şemasını kullanmaktadır.
+
+### Tablo Yapısı
+```mermaid
+erDiagram
+    events {
+        bigint id PK
+        varchar title
+        text description
+        varchar location
+        varchar event_link
+        timestamp event_date_time
+        varchar image_url "MinIO resim adı"
+        int total_quota
+        bigint club_id
+        varchar organizer_auth_id "ROLE_CLUB_OWNER Id"
+        timestamp created_at
+    }
+```
+
+- **Not**: Tabloda kulüp adı (`clubName`) saklanmaz, bunun yerine ilişkisel bütünlük amacıyla `club_id` tutulur. Get isteklerinde veriler birleştirilerek döner.
+
+---
+
+## ✉️ RabbitMQ Olay Akışları (Event-Driven)
+`event-service` doğrudan RabbitMQ üzerinden olay yayınlamaz veya tüketmez. Ancak, dolaylı olarak veriler `registration-service` gibi biletleme servisleri tarafından okunur.
+
+---
+
+## 🔌 Servis İletişimi (OpenFeign)
+Servis, veri bütünlüğünü sağlamak amacıyla diğer servislerle senkron FeignClient bağlantıları kurar.
+
+### 1. Tüketilen Dış Servisler (Feign Clients)
+- **`ClubServiceClient` (`club-service` çağrılır)**:
+  - **Sahiplik Kontrolü (`GET /api/clubs/{clubId}/is-owner/{authId}`)**: Etkinlik oluşturulurken, oluşturan kulüp yöneticisinin gerçekten o kulübün sahibi olup olmadığını doğrulamak için çağrılır.
+  - **Detay Getirme (`GET /api/clubs/{clubId}`)**: Etkinlik detayları listelenirken, response içerisine kulübün adını (`clubName`) dinamik olarak eklemek amacıyla çağrılır.
+
+---
+
+## ⚙️ Yapılandırma ve Çalışma Parametreleri
+- **Çalışma Portu**: `9004` (Gateway yönlendirmesi: `/api/events/**`)
+- **Veritabanı Şeması**: `event_schema`
+- **Merkezi Yapılandırma (Config Repo)**: `event-service.yml`
+- **Depolama S3/MinIO Yapılandırması**:
+  - `minio.url`: `http://localhost:9000`
+  - `minio.bucketName`: `uniclub-events`
+  - `minio.accessKey` / `secretKey`: `minioadmin`
+- **Önbellek (Redis)**: Kontenjanların saklanması için `localhost:6379` adresi üzerinden Redis bağlantısı kurulur.
+
+---
 
 ## 🛣️ API Endpoint'leri (Yolları)
 
 ### 📢 Genel Etkinlik İşlemleri (Public)
-| Yöntem | Endpoint | Açıklama |
-| :--- | :--- | :--- |
-| `GET` | `/api/events` | Sistemdeki tüm aktif etkinlikleri listeler. |
-| `GET` | `/api/events/{id}` | Belirtilen etkinliğin detay bilgilerini döner. |
-| `GET` | `/api/events/club/{clubId}` | Sadece belirli bir kulübün düzenlediği etkinlikleri listeler. |
+| Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/events` | Herkese Açık | Sistemdeki tüm aktif etkinlikleri listeler. |
+| `GET` | `/api/events/{id}` | Herkese Açık | Belirtilen etkinliğin detay bilgilerini döner. (FeignClient ile kulüp adı eklenir). |
+| `GET` | `/api/events/club/{clubId}` | Herkese Açık | Sadece belirli bir kulübün düzenlediği etkinlikleri listeler. |
 
 ### 🛠️ Etkinlik Yönetim İşlemleri (Club Owner Only)
 | Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/events` | `ROLE_CLUB_OWNER` | Yeni bir etkinlik kaydı oluşturur. |
+| `POST` | `/api/events` | `ROLE_CLUB_OWNER` | Yeni bir etkinlik kaydı oluşturur. `club-service` doğrulaması yapılır ve Redis kontenjanı set edilir. |
 | `POST` | `/api/events/{id}/image` | `ROLE_CLUB_OWNER` *(Etkinlik Sahibi)* | Etkinliğe kapak görseli/afiş yükler (Multipart File -> MinIO). |
-| `PUT` | `/api/events/{id}` | `ROLE_CLUB_OWNER` *(Etkinlik Sahibi)* | Etkinlik bilgilerini (başlık, açıklama, tarih, konum, kota vb.) günceller. |
-| `DELETE` | `/api/events/{id}` | `ROLE_CLUB_OWNER` *(Etkinlik Sahibi)* | Etkinliği tamamen siler. |
+| `PUT` | `/api/events/{id}` | `ROLE_CLUB_OWNER` *(Etkinlik Sahibi)* | Etkinlik bilgilerini günceller. Kontenjan değişirse Redis'i günceller. |
+| `DELETE` | `/api/events/{id}` | `ROLE_CLUB_OWNER` *(Etkinlik Sahibi)* | Etkinliği tamamen siler ve Redis'teki kontenjan anahtarını temizler. |

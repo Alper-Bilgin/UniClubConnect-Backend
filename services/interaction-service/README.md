@@ -1,31 +1,90 @@
 # Interaction Service (Etkileşim Servisi)
 
-`interaction-service`, UniClubConnect platformundaki gönderiler (post) ve etkinlikler (event) gibi çeşitli hedefler üzerindeki beğenme (like) ve yorum yapma (comment) gibi sosyal etkileşimleri yöneten Spring Boot mikroservisidir.
+`interaction-service`, platformdaki gönderiler (post) ve etkinlikler (event) üzerindeki beğenme (like) ve yorum yapma (comment) gibi sosyal etkileşimleri yöneten Spring Boot mikroservisidir.
 
-## 📌 Genel Bakış ve Görevleri
-- **Yorum Yönetimi**: Gönderilere veya etkinliklere yorum yapma (`POST /comments`), silme (`DELETE /comments/{commentId}`) ve hedeflere ait tüm yorumları listeleme (`GET /comments/{targetType}/{targetId}`).
-- **Beğeni Yönetimi**: Kullanıcıların bir hedefi beğenmesi veya beğeniyi geri çekmesi (Toggle Like - `/likes`).
-- **İlişkisel Hedef Yapısı**: Etkileşimler `ETargetType` enum yapısı (örn. POST, EVENT) ve `targetId` (hedef ID'si) ikilisiyle dinamik olarak eşleştirilir. Bu sayede servis, yeni bir hedef türü geldiğinde kolayca genişletilebilir.
-- **Durum Kontrolü**: Kullanıcının belirli bir gönderiyi/etkinliği beğenip beğenmediğini sorgulayabilmesi (`/status`).
+---
 
-## ⚙️ Teknolojiler ve Bağımlılıklar
-- **Java 17 & Spring Boot**
-- **Spring Data JPA & PostgreSQL** (Yorumların, beğenilerin ve hedeflerin veritabanında saklanması)
-- **Spring Security** (Oturum açmış kullanıcıların doğrulanması ve yorum silme işlemlerinde sahiplik kontrolü)
-- **Eureka Client & Spring Cloud Config Client**
+## 🏗️ Geliştirme ve Yazılım Mimarisi
+Servis, dinamik hedef yapısı ve asenkron ödüllendirme tetikleri barındıran **Katmanlı Mimari (Layered Architecture)** prensiplerine göre tasarlanmıştır.
+- **Dinamik Polimorfik Hedef Yapısı**: Beğeniler ve yorumlar tekil olarak doğrudan tablolara bağlanmaz. `ETargetType` enum yapısı (örn: `POST`, `EVENT`) ve `targetId` ikilisi kullanılarak dinamik olarak eşleştirilir. Bu polimorfik tasarım sayesinde, ilerleyen aşamalarda sisteme yeni bir etkileşim hedefi (örn. `CLUB_PAGE` veya `STORY`) eklendiğinde veri yapısını bozmadan kolayca genişletilebilirlik sağlanır.
+- **Senkron İç Hata Doğrulama (Feign Barrier)**: Bir beğeni veya yorum eklenmeden önce, hedef içeriğin sistemde var olup olmadığı `PostServiceClient` veya `EventServiceClient` üzerinden senkron olarak sorgulanır (`validateTargetExists`). Eğer hedef bulunamazsa etkileşim işlemi iptal edilerek veritabanı tutarlılığı korunur.
+- **Asenkron Oyunlaştırma Tetikleyicisi**: Kullanıcılar her yorum yaptığında veya beğeni eklediğinde (beğeni geri çekildiğinde hariç), RabbitMQ üzerinden asenkron olarak `GamificationEvent` fırlatılarak kullanıcının anında XP kazanması ve rozet kurallarının çalıştırılması sağlanır.
+
+---
+
+## 💾 Veritabanı Şeması ve Tablolar
+Bu servis, ortak PostgreSQL veritabanındaki isolated **`interaction_schema`** şemasını kullanmaktadır.
+
+### Tablo İlişkileri (ERD Yapısı)
+```mermaid
+erDiagram
+    likes {
+        bigint id PK
+        varchar user_id "Liker Auth ID"
+        varchar target_id "Post or Event ID"
+        varchar target_type "POST, EVENT"
+        timestamp liked_at
+    }
+    comments {
+        bigint id PK
+        varchar user_id "Author Auth ID"
+        text content
+        varchar target_id "Post or Event ID"
+        varchar target_type "POST, EVENT"
+        timestamp created_at
+    }
+```
+
+---
+
+## ✉️ RabbitMQ Olay Akışları (Event-Driven)
+Kullanıcı etkileşimlerini ödüllendirmek amacıyla asenkron olaylar yayınlanır.
+
+### 1. Yayınlanan Olaylar (Published Events)
+- **Etkileşim Olayı (`GamificationEvent`)**:
+  - **Exchange**: `gamification.exchange` (Varsayılan)
+  - **Routing Key**: `gamification.event.interaction` (Varsayılan)
+  - **Payload DTO**: `userId`, `eventType` (`COMMENT_ADDED`, `POST_LIKED`), `referenceId` (Yorum ID veya Post ID), `timestamp`
+  - **Tüketen Servisler**:
+    - `gamification-service`: Kullanıcıya yaptığı etkileşimlerden dolayı XP ödülü vermek ve rozet kurallarını işletmek için.
+
+---
+
+## 🔌 Servis İletişimi (OpenFeign)
+Servis, veri doğruluğu ve DTO zenginleştirme amacıyla diğer servislerle senkron FeignClient bağlantıları kurar.
+
+### 1. Tüketilen Dış Servisler (Feign Clients)
+- **`PostServiceClient` (`post-service` çağrılır)**:
+  - **Uç Nokta (`GET /api/posts/{postId}`)**: Gönderilen etkileşim hedefi `POST` olduğunda, postun silinmediğini doğrulamak için çağrılır.
+- **`EventServiceClient` (`event-service` çağrılır)**:
+  - **Uç Nokta (`GET /api/events/{id}`)**: Gönderilen etkileşim hedefi `EVENT` olduğunda, etkinliğin aktif olduğunu doğrulamak için çağrılır.
+- **`ProfileServiceClient` (`user-profile-service` çağrılır)**:
+  - **Uç Nokta (`GET /api/profiles/user/{authId}`)**: Yorumlar listelenirken, yorumu yazan kullanıcının ham authId bilgisini ad, soyad ve profil resmi gibi görünüm detaylarına dönüştürmek amacıyla çağrılır.
+
+---
+
+## ⚙️ Yapılandırma ve Çalışma Parametreleri
+- **Çalışma Portu**: `9008` (Gateway yönlendirmesi: `/api/interactions/**`)
+- **Veritabanı Şeması**: `interaction_schema`
+- **Merkezi Yapılandırma (Config Repo)**: `interaction-service.yml`
+- **Olay Yayınlama Parametreleri**:
+  - `gamification.rabbitmq.exchange`: `gamification.exchange`
+  - `gamification.rabbitmq.routing-key`: `gamification.event.interaction`
+
+---
 
 ## 🛣️ API Endpoint'leri (Yolları)
 
 ### 💬 Yorum İşlemleri
 | Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/interactions/comments` | Giriş Yapmış Kullanıcılar | Belirtilen hedefe yeni bir yorum yazar. (Body: `content`, `targetId`, `targetType`). |
-| `GET` | `/api/interactions/comments/{targetType}/{targetId}` | Public | Belirtilen hedefin tüm yorumlarını listeler (örn. `POST` veya `EVENT` tipinde). |
-| `DELETE` | `/api/interactions/comments/{commentId}` | Giriş Yapmış Kullanıcılar | Yazarı olunan bir yorumu sistemden siler. |
+| `POST` | `/api/interactions/comments` | Giriş Yapmış Kullanıcı | Hedef içerik için yeni bir yorum oluşturur ve `GamificationEvent` tetikler. (Body: `content`, `targetId`, `targetType` [`POST` / `EVENT`]). |
+| `GET` | `/api/interactions/comments/{targetType}/{targetId}` | Herkese Açık | Belirtilen hedefe ait tüm yorumları kronolojik listeler. `user-profile-service` FeignClient ile yazar bilgileri eklenir. |
+| `DELETE` | `/api/interactions/comments/{commentId}` | Giriş Yapmış Kullanıcı | Yalnızca yorumun sahibi tarafından çağrılabilir, yorumu siler. |
 
 ### 💖 Beğeni İşlemleri
 | Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/interactions/likes` | Giriş Yapmış Kullanıcılar | Hedefi beğenir. Zaten beğenildiyse beğeniyi kaldırır (Toggle). (Body: `targetId`, `targetType`). |
-| `GET` | `/api/interactions/likes/{targetType}/{targetId}/count` | Public | Belirtilen hedefin toplam beğeni sayısını döner. |
-| `GET` | `/api/interactions/likes/{targetType}/{targetId}/status` | Giriş Yapmış Kullanıcılar | Oturum açan kullanıcının o hedefi beğenip beğenmediğini döner (`true/false`). |
+| `POST` | `/api/interactions/likes` | Giriş Yapmış Kullanıcı | **Toggle Beğeni**: Gönderilen hedef içerik beğenilmemişse beğenir ve `GamificationEvent` fırlatır. Zaten beğenilmişse beğeniyi kaldırır. (Body: `targetId`, `targetType`). |
+| `GET` | `/api/interactions/likes/{targetType}/{targetId}/count` | Herkese Açık | Belirtilen hedefin toplam beğeni sayısını döner. |
+| `GET` | `/api/interactions/likes/{targetType}/{targetId}/status` | Giriş Yapmış Kullanıcı | Oturum açan kullanıcının o içeriği beğenip beğenmediğini döner (`true` / `false`). |

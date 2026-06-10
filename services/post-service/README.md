@@ -2,35 +2,102 @@
 
 `post-service`, UniClubConnect platformundaki kullanıcıların ve kulüplerin metin ve görsel içerikli gönderiler (post) paylaşmasını, güncellemesini, silmesini ve listelemesini yöneten Spring Boot mikroservisidir.
 
-## 📌 Genel Bakış ve Görevleri
-- **Gönderi Paylaşma**: Metin ve opsiyonel olarak görsel içeren gönderilerin oluşturulması (`POST /api/posts`).
-- **Medya Depolama (Object Storage)**: Gönderi görsellerinin MinIO nesne depolama sunucusunda güvenli şekilde saklanması.
-- **Gönderi Yönetimi**: Kullanıcıların paylaştıkları gönderileri güncelleyebilmesi (`PUT`) veya silebilmesi (`DELETE`).
-  - *Güvenlik Kontrolü*: Silme ve güncelleme işlemleri sadece gönderinin sahibi olan kullanıcılara kapatılmıştır.
-- **Toplu Sorgulama (Batch API)**: `feed-service` gibi dış servislerin, kullanıcının akışındaki gönderileri tek tek sorgulamak yerine liste halindeki gönderi ID'lerini toplu olarak çekebilmesi (`POST /batch`).
+---
 
-## ⚙️ Teknolojiler ve Bağımlılıklar
-- **Java 17 & Spring Boot**
-- **Spring Data JPA & PostgreSQL** (Gönderi metinlerinin, görsellerinin yollarının ve yazar bilgilerinin saklanması)
-- **MinIO S3 API SDK** (Gönderi resimlerinin nesne deposunda saklanması)
-- **Spring Security** (Oturum sahibi kimliği doğrulaması ve veri sahipliği kontrolleri)
-- **Eureka Client & Spring Cloud Config Client**
+## 🏗️ Geliştirme ve Yazılım Mimarisi
+Servis, medya saklama yetenekleri ve asenkron olay yayını içeren **Katmanlı Mimari (Layered Architecture)** prensiplerine göre tasarlanmıştır.
+- **Güvenlik ve Sahiplik Kontrolü**: Gönderiler oluşturulurken yazarın authId bilgisi JWT token'ından alınır. Gönderi güncelleme (`PUT`) ve silme (`DELETE`) işlemlerinde, işlemi yapan kullanıcının gönderinin asıl yazarı olup olmadığı veritabanı seviyesinde doğrulanır (`organizerAuthId` veya `authorId` kontrolü).
+- **Medya Depolama (Object Storage)**: Gönderilere eklenen görseller S3 uyumlu **MinIO** nesne deposunda (`uniclubposts` bucket) saklanır. Dosya boyutları sunucu seviyesinde maksimum 10MB olarak sınırlandırılmıştır.
+- **Asenkron Olay Yayını (RabbitMQ)**:
+  - Yeni bir post oluşturulduğunda:
+    1. `post.exchange` -> `post.created` routing key'i ile `feed-service` akış dağıtımını tetikler.
+    2. `gamification.exchange` -> `gamification.event.post.created` routing key'i ile `gamification-service` ödül motorunu tetikler.
+  - Bir post silindiğinde:
+    1. `post.exchange` -> `post.deleted` routing key'i ile olay fırlatılır.
+- **Toplu Sorgulama Arayüzü (Batch REST API)**: `feed-service` gibi akış servislerinin performansını artırmak amacıyla, gönderilen ID listesine karşılık gelen tüm gönderi detaylarını tek bir seferde dönen `/batch` uç noktası sunulmaktadır.
+
+---
+
+## 💾 Veritabanı Şeması ve Tablolar
+Bu servis, ortak PostgreSQL veritabanındaki isolated **`post_schema`** şemasını kullanmaktadır.
+
+### Tablo Yapısı
+```mermaid
+erDiagram
+    posts {
+        bigint id PK
+        text content
+        varchar image_url "MinIO dosya adı"
+        varchar author_id "User Auth ID"
+        timestamp created_at
+        timestamp updated_at
+    }
+```
+
+---
+
+## ✉️ RabbitMQ Olay Akışları (Event-Driven)
+Gönderi durumlarını sisteme bildirmek amacıyla asenkron olaylar yayınlanır.
+
+### 1. Yayınlanan Olaylar (Published Events)
+- **Gönderi Oluşturuldu / Silindi (`PostEvent`)**:
+  - **Exchange**: `post.exchange`
+  - **Routing Keys**: `post.created` (Oluşturuldu), `post.deleted` (Silindi)
+  - **Payload DTO**: `eventId`, `eventType`, `postId`, `authorId`
+  - **Tüketen Servisler**: 
+    - `feed-service`: Kullanıcıların akışlarını (timeline) güncellemek için.
+
+- **Post Paylaşımı Ödülü (`GamificationEvent`)**:
+  - **Exchange**: `gamification.exchange`
+  - **Routing Key**: `gamification.event.post.created`
+  - **Payload DTO**: `userId`, `eventType` (`POST_CREATED`), `referenceId` (Post ID), `timestamp`
+  - **Tüketen Servisler**:
+    - `gamification-service`: Kullanıcıya post paylaşmasından dolayı XP ödülü vermek ve ilgili rozetleri kontrol etmek için.
+
+---
+
+## 🔌 Servis İletişimi (OpenFeign)
+Servis, yazar bilgilerini zenginleştirmek ve diğer servislere veri sağlamak için senkron FeignClient bağlantıları kurar.
+
+### 1. Tüketilen Dış Servisler (Feign Clients)
+- **`ProfileServiceClient` (`user-profile-service` çağrılır)**:
+  - **Uç Nokta (`GET /api/profiles/user/{authId}`)**: Gönderi listeleri dönerken, her gönderinin yazarının adını, soyadını ve profil resmini eklemek amacıyla çağrılır.
+
+### 2. Sağlanan Endpoint'ler (Exposed to Feign)
+- **Toplu Sorgulama API'si (`POST /api/posts/batch`)**:
+  - **Tüketen Servisler**: `feed-service` (Kullanıcının Redis akışındaki post ID listesini tek tek sorgulamak yerine toplu halde çekmek için bu uç noktayı çağırır).
+
+---
+
+## ⚙️ Yapılandırma ve Çalışma Parametreleri
+- **Çalışma Portu**: `9007` (Gateway yönlendirmesi: `/api/posts/**`)
+- **Veritabanı Şeması**: `post_schema`
+- **Merkezi Yapılandırma (Config Repo)**: `post-service.yml`
+- **Dosya Boyutu Sınırları**:
+  - `spring.servlet.multipart.max-file-size`: `10MB`
+  - `spring.servlet.multipart.max-request-size`: `10MB`
+- **Depolama S3/MinIO Yapılandırması**:
+  - `minio.url`: `http://localhost:9000`
+  - `minio.bucketName`: `uniclubposts`
+  - `minio.accessKey` / `secretKey`: `minioadmin`
+
+---
 
 ## 🛣️ API Endpoint'leri (Yolları)
 
 ### 📢 Genel Gönderi İşlemleri (Public & Internal)
-| Yöntem | Endpoint | Açıklama |
-| :--- | :--- | :--- |
-| `GET` | `/api/posts` | Platformdaki tüm gönderileri kronolojik listeler. |
-| `GET` | `/api/posts/{postId}` | Belirtilen gönderinin detay bilgilerini getirir. |
-| `GET` | `/api/posts/user/{userId}` | Sadece belirli bir kullanıcının veya kulübün paylaştığı gönderileri listeler. |
-| `POST` | `/api/posts/batch` | **[İç Servis/Feign]** Gönderilen ID listesine ait tüm gönderi detaylarını toplu döner. |
+| Yöntem | Endpoint | Erişim Yetkisi | Açıklama |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/posts` | Herkese Açık | Sistemdeki tüm gönderileri en yeniye doğru listeler. |
+| `GET` | `/api/posts/{postId}` | Herkese Açık | Belirtilen gönderinin detay bilgilerini getirir. |
+| `GET` | `/api/posts/user/{userId}` | Herkese Açık | Sadece belirli bir kullanıcının veya kulübün paylaştığı gönderileri listeler. |
+| `POST` | `/api/posts/batch` | **İç Servis (Feign)** | Gönderilen ID listesine ait tüm gönderi detaylarını toplu döner. |
 
 ### 📝 Gönderi Yazma ve Düzenleme (Giriş Yapmış Kullanıcılar)
-*Not: Gönderi oluşturma ve güncelleme işlemleri medya dosyası içerebileceği için `multipart/form-data` formatında kabul edilir.*
+*Not: Medya dosyası içerebilme durumundan dolayı oluşturma ve güncelleme işlemleri `multipart/form-data` formatındadır.*
 
 | Yöntem | Endpoint | Parametreler (Form-Data) | Açıklama |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/posts` | `content` (text), `image` (file, opsiyonel) | Yeni bir gönderi paylaşır. Görseli varsa MinIO'ya yükler. |
-| `PUT` | `/api/posts/{postId}` | `content` (text, opsiyonel), `image` (file, opsiyonel) | *(Yalnızca Yazar)* Gönderinin metnini veya görselini günceller. |
-| `DELETE` | `/api/posts/{postId}` | - | *(Yalnızca Yazar)* Belirtilen gönderiyi sistemden tamamen siler. |
+| `POST` | `/api/posts` | `content` (Metin), `image` (Dosya, Opsiyonel) | Yeni bir gönderi paylaşır. Varsa görseli MinIO'ya kaydeder. RabbitMQ olaylarını fırlatır. |
+| `PUT` | `/api/posts/{postId}` | `content` (Metin, Opsiyonel), `image` (Dosya, Opsiyonel) | *(Yalnızca Yazar)* Gönderinin içeriğini veya görselini günceller. |
+| `DELETE` | `/api/posts/{postId}` | - | *(Yalnızca Yazar)* Gönderiyi tamamen siler, MinIO'dan görselini kaldırır ve RabbitMQ olayı fırlatır. |
