@@ -4,13 +4,13 @@ UniClubConnect, üniversite kulüpleri ve öğrencileri arasında sosyal etkile�
 
 ---
 
-## 🏗️ Genel Sistem Mimarisi
+##  Genel Sistem Mimarisi
 
 Sistem; bağımsız olarak ölçeklenebilen 12 mikroservis, 3 altyapı bileşeni, bellek içi önbellek (Redis), mesaj kuyruğu (RabbitMQ), ilişkisel veritabanı (PostgreSQL), S3 nesne depolama (MinIO) ve test e-posta sunucusundan (Mailpit) oluşur.
 
 ---
 
-## 🛠️ Servis Kataloğu ve Port Referans Tablosu
+##  Servis Kataloğu ve Port Referans Tablosu
 
 | Modül / Servis Adı | Port | DB Şeması | API Route Prefix | Açıklama |
 | :--- | :---: | :--- | :--- | :--- |
@@ -32,7 +32,7 @@ Sistem; bağımsız olarak ölçeklenebilen 12 mikroservis, 3 altyapı bileşeni
 
 ---
 
-## 🔄 Olay-Odaklı Mesajlaşma Akışları (RabbitMQ Mappings)
+##  Olay-Odaklı Mesajlaşma Akışları (RabbitMQ Mappings)
 
 Sistemdeki mikroservisler, asenkron ve gevşek bağlı (loosely coupled) entegrasyonu sağlamak için RabbitMQ kullanır. Olay haritası aşağıda özetlenmiştir:
 
@@ -53,7 +53,7 @@ Sistemdeki mikroservisler, asenkron ve gevşek bağlı (loosely coupled) entegra
 
 ---
 
-## 🔌 Senkron Mikroservis Haberleşmesi (OpenFeign Matrix)
+##  Senkron Mikroservis Haberleşmesi (OpenFeign Matrix)
 
 Doğrudan veritabanı okumasının yapılamadığı veya gerçek zamanlı veri doğruluğu gerektiren durumlarda mikroservisler OpenFeign arayüzleri üzerinden HTTP çağrıları yapar.
 
@@ -74,7 +74,7 @@ Doğrudan veritabanı okumasının yapılamadığı veya gerçek zamanlı veri d
 
 ---
 
-## 💾 Kalıcı Veri Yönetimi ve Veritabanı Şeması İzolasyonu
+##  Kalıcı Veri Yönetimi ve Veritabanı Şeması İzolasyonu
 
 Uygulamada mikroservislerin bağımsız çalışabilmesi (loose coupling) amacıyla veri katmanları mantıksal olarak izole edilmiştir.
 
@@ -83,7 +83,7 @@ Uygulamada mikroservislerin bağımsız çalışabilmesi (loose coupling) amacı
 
 ---
 
-## 🚀 Yerel Kurulum ve Çalıştırma Talimatları
+##  Yerel Kurulum ve Çalıştırma Talimatları
 
 ### 1. Önkoşullar
 - **Java 17 JDK**
@@ -114,3 +114,8 @@ Spring Cloud yapısının doğru ayağa kalkması için servislerin şu sırayla
 2. **config-server** (`infrastructure/config-server` -> Port `8888`)
 3. **api-gateway** (`infrastructure/api-gateway` -> Port `8080`)
 4. **auth-service**, **user-profile-service**, **club-service** ve diğer tüm mikroservisler.
+
+##  Geliştirici
+
+**Alper Bilgin**
+-  [Bağlantılarım (Linktree)](https://linktr.ee/Alper_Bilgin)
